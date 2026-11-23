@@ -1,0 +1,13 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { max-width: 52rem; margin: 0 auto; padding: 1rem; }
+header { display: flex; gap: 1rem; align-items: center; }
+header h1 { margin-right: auto; }
+#drop { display: block; border: 2px dashed #888; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; }
+#drop.over { border-color: #2a7; background: #2a72; }
+#drop input { display: block; margin: 1rem auto 0; }
+form > * { margin: .5rem 0; }
+#preview { color: #888; margin-left: .5rem; }
+#status.error { color: #c33; }
+table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #8884; }
+#providers a { display: inline-block; margin-right: 1rem; padding: .5rem 1rem; border: 1px solid #888; border-radius: 6px; }

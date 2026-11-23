@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sites admin</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Sites</h1>
+    <span id="who"></span>
+    <button id="logout" hidden>Log out</button>
+  </header>
+
+  <section id="login" hidden>
+    <p>Log in to publish pages.</p>
+    <div id="providers"></div>
+  </section>
+  <p id="denied" hidden></p>
+
+  <main id="app" hidden>
+    <form id="upload">
+      <label id="drop" for="pick">
+        Drop a folder, a .zip or an .html file here, or click to choose a file
+        <input id="pick" type="file" accept=".zip,.html,.htm">
+      </label>
+      <button type="button" id="pick-dir">Choose a folder…</button>
+      <input id="pick-dir-input" type="file" webkitdirectory hidden>
+      <p id="chosen"></p>
+      <label>Page name
+        <input id="name" required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" placeholder="my-page">
+      </label>
+      <span id="preview"></span>
+      <button id="publish" disabled>Publish</button>
+      <p id="status" role="status"></p>
+    </form>
+
+    <table>
+      <thead><tr><th>Page</th><th>Size</th><th>Updated</th><th></th></tr></thead>
+      <tbody id="pages"></tbody>
+    </table>
+  </main>
+</body>
+</html>
