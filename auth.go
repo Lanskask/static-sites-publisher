@@ -34,7 +34,7 @@ type Provider struct {
 type Auth struct {
 	Key       []byte          // HMAC key for session cookies
 	Allow     map[string]bool // identities ("github:<id>", "google:<sub>") let in; v1 is owner only
-	Origin    string          // the admin's own origin, e.g. https://nex-admin.duckdns.org
+	Origin    string          // the admin's own origin, e.g. https://nex-sites-admin.duckdns.org
 	Providers map[string]*Provider
 	Dev       string // fixed identity for local runs; main sets it only for a localhost Origin
 }
