@@ -89,7 +89,7 @@ func (t *Tokens) Lookup(raw string) (string, bool) {
 func (t *Tokens) list(owner string) ([]TokenInfo, error) {
 	ents, err := os.ReadDir(t.Dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return []TokenInfo{}, nil
 	} else if err != nil {
 		return nil, err
 	}

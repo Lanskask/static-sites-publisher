@@ -164,3 +164,12 @@ func TestTokenCreateNeedsOrigin(t *testing.T) {
 		t.Fatalf("no origin: %d", w.Code)
 	}
 }
+
+// A fresh install has no tokens directory; the list must still encode as [] (the admin UI calls .map on it).
+func TestListWithoutDirIsEmptyArray(t *testing.T) {
+	tk := &Tokens{Dir: filepath.Join(t.TempDir(), "missing")}
+	list, err := tk.List("github:1")
+	if err != nil || list == nil || len(list) != 0 {
+		t.Fatalf("list = %#v, err = %v; want empty non-nil slice", list, err)
+	}
+}

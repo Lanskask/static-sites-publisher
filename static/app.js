@@ -25,6 +25,12 @@ async function start() {
       $("logout").hidden = false;
       return;
     }
+    // Only a 401 means "not logged in"; any other error (a bug, the network) must not bring the login box back.
+    if (e.status !== 401) {
+      $("denied").textContent = `Could not load the admin: ${e.message}`;
+      $("denied").hidden = false;
+      return;
+    }
     const providers = await api("GET", "/api/providers");
     for (const p of providers) {
       const a = document.createElement("a");
