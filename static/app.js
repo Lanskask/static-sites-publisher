@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 let chosen = []; // [{path, file}]
 let domain = "";
+let existing = new Set(); // page names that publishing would replace
 
 async function api(method, url, body) {
   const res = await fetch(url, { method, body });
@@ -13,15 +14,24 @@ async function api(method, url, body) {
 async function start() {
   try {
     const me = await api("GET", "/api/me");
-    $("who").textContent = me.id;
+    const [provider] = me.id.split(":");
+    $("who").textContent = me.name ? `${me.name} · ${provider[0].toUpperCase()}${provider.slice(1)}` : me.id;
+    $("who").title = me.id; // the stable id the allowlist uses
     $("logout").hidden = false;
     $("app").hidden = false;
     await refresh();
+    await refreshTokens();
   } catch (e) {
     if (e.status === 403) {
       $("denied").textContent = e.message;
       $("denied").hidden = false;
       $("logout").hidden = false;
+      return;
+    }
+    // Only a 401 means "not logged in"; any other error (a bug, the network) must not bring the login box back.
+    if (e.status !== 401) {
+      $("denied").textContent = `Could not load the admin: ${e.message}`;
+      $("denied").hidden = false;
       return;
     }
     const providers = await api("GET", "/api/providers");
@@ -38,25 +48,52 @@ async function start() {
 async function refresh() {
   const data = await api("GET", "/api/pages");
   domain = data.domain;
+  existing = new Set(data.pages.map((p) => p.name));
   const rows = data.pages.map((p) => {
     const tr = document.createElement("tr");
     const url = `https://${p.name}.${domain}/`;
     const link = Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" });
-    const del = Object.assign(document.createElement("button"), { textContent: "Delete" });
+    const del = Object.assign(document.createElement("button"), { textContent: "Delete", className: "del" });
     del.onclick = async () => {
       if (!confirm(`Delete ${p.name}? This cannot be undone.`)) return;
       await api("DELETE", `/api/pages/${p.name}`).catch(showError);
       refresh();
     };
-    for (const c of [link, `${(p.bytes / 1024).toFixed(1)} KB`, new Date(p.updated).toLocaleString(), del]) {
+    for (const c of [link, size(p.bytes), new Date(p.updated).toLocaleString(), del]) {
       const td = document.createElement("td");
       td.append(c);
       tr.append(td);
     }
     return tr;
   });
+  if (rows.length === 0) {
+    const td = Object.assign(document.createElement("td"), { colSpan: 4, className: "empty", textContent: "No pages yet. Drop a site above to publish it." });
+    const tr = document.createElement("tr");
+    tr.append(td);
+    rows.push(tr);
+  }
   $("pages").replaceChildren(...rows);
   updatePreview();
+}
+
+async function refreshTokens() {
+  const list = await api("GET", "/api/tokens");
+  const items = list.map((t) => {
+    const li = document.createElement("li");
+    const del = Object.assign(document.createElement("button"), { textContent: "Revoke", className: "del" });
+    del.onclick = async () => {
+      if (!confirm(`Revoke "${t.label}"? Anything using it stops working.`)) return;
+      await api("DELETE", `/api/tokens/${t.id}`).catch(showError);
+      refreshTokens();
+    };
+    li.append(Object.assign(document.createElement("span"), { textContent: `${t.label} · ${new Date(t.created).toLocaleDateString()}` }), del);
+    return li;
+  });
+  $("token-list").replaceChildren(...items);
+}
+
+function size(b) {
+  return b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function slug(s) {
@@ -73,7 +110,7 @@ function choose(files, label) {
 
 function updatePreview() {
   const n = $("name").value;
-  $("preview").textContent = n ? `→ https://${n}.${domain}/` : "";
+  $("preview").textContent = n ? `→ https://${n}.${domain}/${existing.has(n) ? " (replaces the page you have now)" : ""}` : "";
 }
 
 // Reads a dropped folder recursively; paths keep the folder name, the server strips it.
@@ -131,7 +168,9 @@ $("upload").addEventListener("submit", async (e) => {
   $("status").textContent = "Publishing…";
   try {
     const m = await api("POST", "/api/pages", fd);
-    $("status").textContent = `Published https://${m.name}.${domain}/`;
+    const url = `https://${m.name}.${domain}/`;
+    $("status").replaceChildren("Published ", Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" }));
+    $("status").className = "ok";
     $("name").value = "";
     chosen = [];
     $("chosen").textContent = "";
@@ -140,6 +179,19 @@ $("upload").addEventListener("submit", async (e) => {
     showError(err);
   } finally {
     $("publish").disabled = chosen.length === 0;
+  }
+});
+
+$("token-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const t = await api("POST", "/api/tokens", JSON.stringify({ label: $("token-label").value }));
+    $("token-value").textContent = t.token;
+    $("token-new").hidden = false;
+    $("token-label").value = "";
+    await refreshTokens();
+  } catch (err) {
+    showError(err);
   }
 });
 

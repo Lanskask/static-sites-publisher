@@ -9,13 +9,13 @@
 </head>
 <body>
   <header>
-    <h1>Sites</h1>
+    <h1>nex-sites <span>admin</span></h1>
     <span id="who"></span>
     <button id="logout" hidden>Log out</button>
   </header>
 
   <section id="login" hidden>
-    <p>Log in to publish pages.</p>
+    <p>Log in to publish pages</p>
     <div id="providers"></div>
   </section>
   <p id="denied" hidden></p>
@@ -23,24 +23,44 @@
   <main id="app" hidden>
     <form id="upload">
       <label id="drop" for="pick">
-        Drop a folder, a .zip or an .html file here, or click to choose a file
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <strong>Drop a folder, a .zip or an .html file</strong>
+        <small>or click to choose a file</small>
         <input id="pick" type="file" accept=".zip,.html,.htm">
       </label>
-      <button type="button" id="pick-dir">Choose a folder…</button>
-      <input id="pick-dir-input" type="file" webkitdirectory hidden>
-      <p id="chosen"></p>
-      <label>Page name
-        <input id="name" required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" placeholder="my-page">
+      <div class="actions">
+        <button type="button" id="pick-dir">Choose a folder…</button>
+        <input id="pick-dir-input" type="file" webkitdirectory hidden>
+        <p id="chosen"></p>
+      </div>
+      <label class="field" for="name">Page name
+        <input id="name" required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" placeholder="my-page" autocomplete="off" autocapitalize="none" spellcheck="false">
       </label>
       <span id="preview"></span>
-      <button id="publish" disabled>Publish</button>
-      <p id="status" role="status"></p>
+      <div class="publish-row">
+        <button id="publish" disabled>Publish</button>
+        <p id="status" role="status"></p>
+      </div>
     </form>
 
-    <table>
-      <thead><tr><th>Page</th><th>Size</th><th>Updated</th><th></th></tr></thead>
-      <tbody id="pages"></tbody>
-    </table>
+    <section id="list">
+      <h2>Your pages</h2>
+      <table>
+        <thead><tr><th>Page</th><th>Size</th><th>Updated</th><th><span class="sr">Actions</span></th></tr></thead>
+        <tbody id="pages"></tbody>
+      </table>
+    </section>
+
+    <details id="tokens">
+      <summary>API tokens <span>for scripts and tools such as Claude</span></summary>
+      <p class="hint">A token can publish, list and delete your pages. It cannot create tokens. Keep it secret; revoke it here if it leaks.</p>
+      <form id="token-form" class="actions">
+        <input id="token-label" aria-label="Token label" placeholder="label, e.g. claude" maxlength="60" autocomplete="off">
+        <button>Create token</button>
+      </form>
+      <p id="token-new" hidden><span>Copy it now, it is shown once:</span> <code id="token-value"></code></p>
+      <ul id="token-list"></ul>
+    </details>
   </main>
 </body>
 </html>
