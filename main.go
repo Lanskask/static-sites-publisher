@@ -97,8 +97,8 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 		}
 		writeJSON(w, names)
 	})
-	mux.Handle("GET /api/me", auth.Require(func(w http.ResponseWriter, _ *http.Request, id string) {
-		writeJSON(w, map[string]string{"id": id})
+	mux.Handle("GET /api/me", auth.Require(func(w http.ResponseWriter, r *http.Request, id string) {
+		writeJSON(w, map[string]string{"id": id, "name": displayName(r)})
 	}))
 	mux.Handle("GET /api/pages", auth.Require(func(w http.ResponseWriter, _ *http.Request, id string) {
 		pages, err := store.List(id)

@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 let chosen = []; // [{path, file}]
 let domain = "";
+let existing = new Set(); // page names that publishing would replace
 
 async function api(method, url, body) {
   const res = await fetch(url, { method, body });
@@ -13,7 +14,9 @@ async function api(method, url, body) {
 async function start() {
   try {
     const me = await api("GET", "/api/me");
-    $("who").textContent = me.id;
+    const [provider] = me.id.split(":");
+    $("who").textContent = me.name ? `${me.name} · ${provider[0].toUpperCase()}${provider.slice(1)}` : me.id;
+    $("who").title = me.id; // the stable id the allowlist uses
     $("logout").hidden = false;
     $("app").hidden = false;
     await refresh();
@@ -45,6 +48,7 @@ async function start() {
 async function refresh() {
   const data = await api("GET", "/api/pages");
   domain = data.domain;
+  existing = new Set(data.pages.map((p) => p.name));
   const rows = data.pages.map((p) => {
     const tr = document.createElement("tr");
     const url = `https://${p.name}.${domain}/`;
@@ -106,7 +110,7 @@ function choose(files, label) {
 
 function updatePreview() {
   const n = $("name").value;
-  $("preview").textContent = n ? `→ https://${n}.${domain}/` : "";
+  $("preview").textContent = n ? `→ https://${n}.${domain}/${existing.has(n) ? " (replaces the page you have now)" : ""}` : "";
 }
 
 // Reads a dropped folder recursively; paths keep the folder name, the server strips it.
@@ -164,7 +168,8 @@ $("upload").addEventListener("submit", async (e) => {
   $("status").textContent = "Publishing…";
   try {
     const m = await api("POST", "/api/pages", fd);
-    $("status").textContent = `Published https://${m.name}.${domain}/`;
+    const url = `https://${m.name}.${domain}/`;
+    $("status").replaceChildren("Published ", Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" }));
     $("status").className = "ok";
     $("name").value = "";
     chosen = [];

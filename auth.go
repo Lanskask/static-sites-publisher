@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,8 +10,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +24,7 @@ import (
 const (
 	sessionCookie = "__Host-session" // __Host-: Secure, Path=/, no Domain, so page subdomains can never set it
 	stateCookie   = "__Host-state"
+	nameCookie    = "__Host-name" // display only (GitHub login, Google name); never checked for access
 	sessionTTL    = 7 * 24 * time.Hour
 )
 
@@ -166,7 +170,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setCookie(w, stateCookie, "", -1)
-	id, err := p.identity(r, r.PathValue("provider"))
+	id, display, err := p.identity(r, r.PathValue("provider"))
 	if err != nil {
 		log.Printf("login: %v", err)
 		http.Error(w, "login failed", http.StatusBadGateway)
@@ -179,6 +183,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setCookie(w, sessionCookie, a.Sign(id, time.Now().Add(sessionTTL)), int(sessionTTL.Seconds()))
+	setCookie(w, nameCookie, url.QueryEscape(display), int(sessionTTL.Seconds()))
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -189,35 +194,55 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setCookie(w, sessionCookie, "", -1)
+	setCookie(w, nameCookie, "", -1)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (p *Provider) identity(r *http.Request, name string) (string, error) {
+// displayName is the friendly name saved at login, or "" (old sessions, API tokens).
+func displayName(r *http.Request) string {
+	c, err := r.Cookie(nameCookie)
+	if err != nil {
+		return ""
+	}
+	s, _ := url.QueryUnescape(c.Value)
+	return s
+}
+
+func (p *Provider) identity(r *http.Request, name string) (id, display string, err error) {
 	tok, err := p.Config.Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
-		return "", fmt.Errorf("exchange: %w", err)
+		return "", "", fmt.Errorf("exchange: %w", err)
 	}
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, p.UserURL, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	resp, err := p.Config.Client(r.Context(), tok).Do(req)
 	if err != nil {
-		return "", fmt.Errorf("user info: %w", err)
+		return "", "", fmt.Errorf("user info: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("user info: %s", resp.Status)
+		return "", "", fmt.Errorf("user info: %s", resp.Status)
 	}
+	return parseUser(name, resp.Body)
+}
+
+// parseUser reads the provider's user JSON: the stable id (the identity) and a name to show.
+func parseUser(provider string, body io.Reader) (id, display string, err error) {
 	var u struct {
-		ID  json.Number `json:"id"`  // GitHub
-		Sub string      `json:"sub"` // Google
+		ID    json.Number `json:"id"`    // GitHub
+		Login string      `json:"login"` // GitHub
+		Sub   string      `json:"sub"`   // Google
+		Name  string      `json:"name"`  // Google
+		Email string      `json:"email"` // Google
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
-		return "", fmt.Errorf("user info: %w", err)
+	if err := json.NewDecoder(body).Decode(&u); err != nil {
+		return "", "", fmt.Errorf("user info: %w", err)
 	}
 	if u.Sub == "" && u.ID == "" {
-		return "", fmt.Errorf("user info has no id")
+		return "", "", fmt.Errorf("user info has no id")
 	}
-	return name + ":" + string(u.ID) + u.Sub, nil
+	shown := []rune(cmp.Or(u.Login, u.Name, u.Email))
+	return provider + ":" + string(u.ID) + u.Sub, string(shown[:min(len(shown), 80)]), nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -91,5 +92,35 @@ func TestParseAllowlist(t *testing.T) {
 	got := ParseAllowlist(" github:1, google:abc ,,")
 	if len(got) != 2 || !got["github:1"] || !got["google:abc"] {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestParseUser(t *testing.T) {
+	for name, c := range map[string]struct{ provider, body, id, display string }{
+		"github login":    {"github", `{"id":15252341,"login":"Lanskask","name":"Real Name"}`, "github:15252341", "Lanskask"},
+		"google name":     {"google", `{"sub":"abc","name":"Jo Doe","email":"jo@x.org"}`, "google:abc", "Jo Doe"},
+		"google no name":  {"google", `{"sub":"abc","email":"jo@x.org"}`, "google:abc", "jo@x.org"},
+		"nothing to show": {"github", `{"id":7}`, "github:7", ""},
+	} {
+		id, display, err := parseUser(c.provider, strings.NewReader(c.body))
+		if err != nil || id != c.id || display != c.display {
+			t.Errorf("%s: got %q, %q, %v; want %q, %q", name, id, display, err, c.id, c.display)
+		}
+	}
+	if _, _, err := parseUser("github", strings.NewReader(`{}`)); err == nil {
+		t.Error("user info without an id must fail")
+	}
+}
+
+func TestDisplayNameCookieRoundTrip(t *testing.T) {
+	w := httptest.NewRecorder()
+	setCookie(w, nameCookie, url.QueryEscape("Jo Doe é"), 60)
+	r := httptest.NewRequest("GET", "/api/me", nil)
+	r.AddCookie(w.Result().Cookies()[0])
+	if got := displayName(r); got != "Jo Doe é" {
+		t.Fatalf("displayName = %q", got)
+	}
+	if got := displayName(httptest.NewRequest("GET", "/api/me", nil)); got != "" {
+		t.Fatalf("no cookie: displayName = %q, want empty", got)
 	}
 }
