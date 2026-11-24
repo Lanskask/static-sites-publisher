@@ -11,14 +11,15 @@ published at `https://<page>.<PAGES_DOMAIN>`. It has no database; pages and meta
 
 ## Run it
 
-Run these from the repo root:
-
 ```bash
-make sites-run      # http://localhost:8080 with a fake login (dev:me)
-make sites-test     # go vet, golangci-lint, go test -race
-make sites-build    # linux/arm64 static binary for the VM
-make sites-deploy   # copy the binary to the VM and restart the pod
+make          # list the commands
+make run      # http://localhost:8080 with a fake login (dev:me)
+make test     # go vet, golangci-lint, go test -race
+make build    # linux/arm64 static binary for the VM
+make deploy   # copy the binary to the VM and restart the pod (VPS_HOST, default k3s-oracle)
 ```
+
+The VM, k3s manifests (`pyinfra/files/sites.yaml`), Secrets and backups live in the separate `OracleCloud` repo.
 
 ## Configuration
 
