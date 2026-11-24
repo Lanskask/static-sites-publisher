@@ -60,10 +60,11 @@ type Meta struct {
 // Store keeps pages on disk: Dir/pages/<name>/ (served), Dir/meta/<name>.json, Dir/tmp/ (uploads in progress).
 type Store struct {
 	Dir          string
-	MaxPages     int   // per owner
-	MaxPageBytes int64 // unzipped, per page
-	MaxUserBytes int64 // all pages of one owner
-	MaxFiles     int   // per page
+	MaxPages     int                    // per owner
+	MaxPageBytes int64                  // unzipped, per page
+	MaxUserBytes int64                  // all pages of one owner
+	MaxFiles     int                    // per page
+	Scan         func(abs string) error // optional extra scanner (clamd), run on every file after the built-in rules
 	mu           sync.Mutex
 }
 
@@ -204,6 +205,9 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 	}
 	if used+total > s.MaxUserBytes {
 		return Meta{}, ErrTooBig
+	}
+	if err := scanTree(tmp, s.Scan); err != nil {
+		return Meta{}, err
 	}
 
 	final := s.sub("pages", name)

@@ -31,6 +31,9 @@ func main() {
 		MaxUserBytes: 300 << 20,
 		MaxFiles:     2000,
 	}
+	if addr := os.Getenv("CLAMD_ADDR"); addr != "" { // optional: host:port of a clamd daemon
+		store.Scan = ClamdScanner(addr)
+	}
 	if err := store.Init(); err != nil {
 		log.Fatal(err)
 	}
@@ -165,6 +168,8 @@ func fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.As(err, &tooLarge), errors.Is(err, ErrTooBig):
 		code, err = http.StatusRequestEntityTooLarge, ErrTooBig
+	case errors.Is(err, ErrRejected):
+		code = http.StatusUnprocessableEntity
 	case errors.Is(err, ErrQuota), errors.Is(err, ErrTaken):
 		code = http.StatusForbidden
 	case errors.Is(err, ErrNotFound):

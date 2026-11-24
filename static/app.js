@@ -42,21 +42,31 @@ async function refresh() {
     const tr = document.createElement("tr");
     const url = `https://${p.name}.${domain}/`;
     const link = Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" });
-    const del = Object.assign(document.createElement("button"), { textContent: "Delete" });
+    const del = Object.assign(document.createElement("button"), { textContent: "Delete", className: "del" });
     del.onclick = async () => {
       if (!confirm(`Delete ${p.name}? This cannot be undone.`)) return;
       await api("DELETE", `/api/pages/${p.name}`).catch(showError);
       refresh();
     };
-    for (const c of [link, `${(p.bytes / 1024).toFixed(1)} KB`, new Date(p.updated).toLocaleString(), del]) {
+    for (const c of [link, size(p.bytes), new Date(p.updated).toLocaleString(), del]) {
       const td = document.createElement("td");
       td.append(c);
       tr.append(td);
     }
     return tr;
   });
+  if (rows.length === 0) {
+    const td = Object.assign(document.createElement("td"), { colSpan: 4, className: "empty", textContent: "No pages yet. Drop a site above to publish it." });
+    const tr = document.createElement("tr");
+    tr.append(td);
+    rows.push(tr);
+  }
   $("pages").replaceChildren(...rows);
   updatePreview();
+}
+
+function size(b) {
+  return b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function slug(s) {
@@ -132,6 +142,7 @@ $("upload").addEventListener("submit", async (e) => {
   try {
     const m = await api("POST", "/api/pages", fd);
     $("status").textContent = `Published https://${m.name}.${domain}/`;
+    $("status").className = "ok";
     $("name").value = "";
     chosen = [];
     $("chosen").textContent = "";
