@@ -45,21 +45,56 @@ async function start() {
   }
 }
 
+// Suggested starter tags; any tag already used on a page is suggested too.
+const STARTER_TAGS = ["programming", "go", "learning", "interview-prep", "security", "dashboards", "travel", "finance", "productivity"];
+let pages = [];
+let sortBy = { key: "name", dir: 1 };
+
 async function refresh() {
   const data = await api("GET", "/api/pages");
   domain = data.domain;
-  existing = new Set(data.pages.map((p) => p.name));
-  const rows = data.pages.map((p) => {
+  pages = data.pages;
+  existing = new Set(pages.map((p) => p.name));
+  render();
+  updatePreview();
+}
+
+function render() {
+  const { key, dir } = sortBy;
+  const val = (p) => (key === "bytes" ? p.bytes : key === "updated" ? Date.parse(p.updated) : p.name);
+  const sorted = [...pages].sort((a, b) => (val(a) < val(b) ? -1 : val(a) > val(b) ? 1 : 0) * dir);
+  for (const th of document.querySelectorAll("th[data-key]")) {
+    th.setAttribute("aria-sort", th.dataset.key === key ? (dir > 0 ? "ascending" : "descending") : "none");
+  }
+  const known = new Set([...STARTER_TAGS, ...pages.flatMap((p) => p.tags || [])]);
+  $("tag-options").replaceChildren(...[...known].sort().map((t) => Object.assign(document.createElement("option"), { value: t })));
+
+  const rows = sorted.map((p) => {
     const tr = document.createElement("tr");
     const url = `https://${p.name}.${domain}/`;
     const link = Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" });
+    // shortcut: the datalist completes only the first tag of the comma list; a chip picker if this gets used a lot
+    const tags = Object.assign(document.createElement("input"), {
+      value: (p.tags || []).join(", "), className: "tags", placeholder: "add tags", autocomplete: "off", spellcheck: false,
+    });
+    tags.setAttribute("list", "tag-options");
+    tags.setAttribute("aria-label", `Tags for ${p.name}, comma-separated`);
+    tags.onchange = async () => {
+      try {
+        const m = await api("PUT", `/api/pages/${p.name}/tags`, JSON.stringify(tags.value.split(",")));
+        p.tags = m.tags;
+        render();
+      } catch (e) {
+        showError(e);
+      }
+    };
     const del = Object.assign(document.createElement("button"), { textContent: "Delete", className: "del" });
     del.onclick = async () => {
       if (!confirm(`Delete ${p.name}? This cannot be undone.`)) return;
       await api("DELETE", `/api/pages/${p.name}`).catch(showError);
       refresh();
     };
-    for (const c of [link, size(p.bytes), new Date(p.updated).toLocaleString(), del]) {
+    for (const c of [link, tags, size(p.bytes), new Date(p.updated).toLocaleString(), del]) {
       const td = document.createElement("td");
       td.append(c);
       tr.append(td);
@@ -67,13 +102,21 @@ async function refresh() {
     return tr;
   });
   if (rows.length === 0) {
-    const td = Object.assign(document.createElement("td"), { colSpan: 4, className: "empty", textContent: "No pages yet. Drop a site above to publish it." });
+    const td = Object.assign(document.createElement("td"), { colSpan: 5, className: "empty", textContent: "No pages yet. Drop a site above to publish it." });
     const tr = document.createElement("tr");
     tr.append(td);
     rows.push(tr);
   }
   $("pages").replaceChildren(...rows);
-  updatePreview();
+}
+
+for (const th of document.querySelectorAll("th[data-key]")) {
+  th.querySelector("button").addEventListener("click", () => {
+    const key = th.dataset.key;
+    // newest and biggest first feel natural; names start A to Z
+    sortBy = { key, dir: sortBy.key === key ? -sortBy.dir : key === "name" ? 1 : -1 };
+    render();
+  });
 }
 
 async function refreshTokens() {

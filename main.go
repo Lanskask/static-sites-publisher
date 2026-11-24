@@ -156,6 +156,19 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	mux.Handle("PUT /api/pages/{name}/tags", auth.Require(func(w http.ResponseWriter, r *http.Request, id string) {
+		var tags []string
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&tags); err != nil {
+			http.Error(w, "body must be a JSON array of tags", http.StatusBadRequest)
+			return
+		}
+		m, err := store.SetTags(id, r.PathValue("name"), tags)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		writeJSON(w, m)
+	}))
 	mux.Handle("DELETE /api/pages/{name}", auth.Require(func(w http.ResponseWriter, r *http.Request, id string) {
 		if err := store.Delete(id, r.PathValue("name")); err != nil {
 			fail(w, err)
@@ -207,7 +220,7 @@ func fail(w http.ResponseWriter, err error) {
 		code = http.StatusNotFound
 	case errors.Is(err, ErrBadName), errors.Is(err, ErrBadPath), errors.Is(err, ErrNoIndex),
 		errors.Is(err, ErrTooMany), errors.Is(err, errBadForm), errors.Is(err, multipart.ErrMessageTooLarge),
-		errors.Is(err, ErrBadZip):
+		errors.Is(err, ErrBadZip), errors.Is(err, ErrBadTag):
 		code = http.StatusBadRequest
 	default:
 		log.Printf("error: %v", err)
