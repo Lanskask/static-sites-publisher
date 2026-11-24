@@ -17,6 +17,7 @@ async function start() {
     $("logout").hidden = false;
     $("app").hidden = false;
     await refresh();
+    await refreshTokens();
   } catch (e) {
     if (e.status === 403) {
       $("denied").textContent = e.message;
@@ -63,6 +64,22 @@ async function refresh() {
   }
   $("pages").replaceChildren(...rows);
   updatePreview();
+}
+
+async function refreshTokens() {
+  const list = await api("GET", "/api/tokens");
+  const items = list.map((t) => {
+    const li = document.createElement("li");
+    const del = Object.assign(document.createElement("button"), { textContent: "Revoke", className: "del" });
+    del.onclick = async () => {
+      if (!confirm(`Revoke "${t.label}"? Anything using it stops working.`)) return;
+      await api("DELETE", `/api/tokens/${t.id}`).catch(showError);
+      refreshTokens();
+    };
+    li.append(Object.assign(document.createElement("span"), { textContent: `${t.label} · ${new Date(t.created).toLocaleDateString()}` }), del);
+    return li;
+  });
+  $("token-list").replaceChildren(...items);
 }
 
 function size(b) {
@@ -151,6 +168,19 @@ $("upload").addEventListener("submit", async (e) => {
     showError(err);
   } finally {
     $("publish").disabled = chosen.length === 0;
+  }
+});
+
+$("token-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const t = await api("POST", "/api/tokens", JSON.stringify({ label: $("token-label").value }));
+    $("token-value").textContent = t.token;
+    $("token-new").hidden = false;
+    $("token-label").value = "";
+    await refreshTokens();
+  } catch (err) {
+    showError(err);
   }
 });
 

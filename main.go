@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ func main() {
 		Allow:     ParseAllowlist(os.Getenv("ALLOWLIST")),
 		Origin:    base,
 		Providers: map[string]*Provider{},
+		Tokens:    &Tokens{Dir: filepath.Join(store.Dir, "tokens"), MaxPerOwner: 10},
 	}
 	if strings.HasPrefix(base, "http://localhost") {
 		auth.Dev = os.Getenv("DEV_IDENTITY") // never honoured on a public URL
@@ -124,6 +126,35 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 			return
 		}
 		writeJSON(w, m)
+	}))
+	mux.Handle("GET /api/tokens", auth.RequireSession(func(w http.ResponseWriter, _ *http.Request, id string) {
+		list, err := auth.Tokens.List(id)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		writeJSON(w, list)
+	}))
+	mux.Handle("POST /api/tokens", auth.RequireSession(func(w http.ResponseWriter, r *http.Request, id string) {
+		var in struct{ Label string }
+		_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&in) // a missing body just means no label
+		label := strings.TrimSpace(in.Label)
+		if label == "" {
+			label = "token"
+		}
+		tok, err := auth.Tokens.Create(id, label[:min(len(label), 60)])
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		writeJSON(w, tok)
+	}))
+	mux.Handle("DELETE /api/tokens/{id}", auth.RequireSession(func(w http.ResponseWriter, r *http.Request, id string) {
+		if err := auth.Tokens.Revoke(id, r.PathValue("id")); err != nil {
+			fail(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}))
 	mux.Handle("DELETE /api/pages/{name}", auth.Require(func(w http.ResponseWriter, r *http.Request, id string) {
 		if err := store.Delete(id, r.PathValue("name")); err != nil {

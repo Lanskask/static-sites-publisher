@@ -50,6 +50,17 @@
         <tbody id="pages"></tbody>
       </table>
     </section>
+
+    <details id="tokens">
+      <summary>API tokens <span>for scripts and tools such as Claude</span></summary>
+      <p class="hint">A token can publish, list and delete your pages. It cannot create tokens. Keep it secret; revoke it here if it leaks.</p>
+      <form id="token-form" class="actions">
+        <input id="token-label" aria-label="Token label" placeholder="label, e.g. claude" maxlength="60" autocomplete="off">
+        <button>Create token</button>
+      </form>
+      <p id="token-new" hidden><span>Copy it now, it is shown once:</span> <code id="token-value"></code></p>
+      <ul id="token-list"></ul>
+    </details>
   </main>
 </body>
 </html>

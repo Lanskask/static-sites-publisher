@@ -121,3 +121,14 @@ td:last-child, th:last-child { text-align: right; padding-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+#tokens { margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+#tokens summary { cursor: pointer; font-size: 0.9375rem; font-weight: 650; }
+#tokens summary span { color: var(--muted); font-weight: 400; }
+.hint { color: var(--muted); font-size: 0.875rem; }
+#token-form input { flex: 1; min-width: 12rem; min-height: 2.5rem; padding: 0 0.75rem; font: inherit; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--panel); color: var(--ink); }
+#token-new { padding: 0.75rem; border: 1px solid var(--accent); border-radius: 0.5rem; background: var(--accent-wash); }
+#token-new span { display: block; font-size: 0.875rem; margin-bottom: 0.25rem; }
+#token-new code { font: 0.875rem var(--mono); overflow-wrap: anywhere; user-select: all; }
+#token-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+#token-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }

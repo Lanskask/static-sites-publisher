@@ -36,7 +36,8 @@ type Auth struct {
 	Allow     map[string]bool // identities ("github:<id>", "google:<sub>") let in; v1 is owner only
 	Origin    string          // the admin's own origin, e.g. https://nex-sites-admin.duckdns.org
 	Providers map[string]*Provider
-	Dev       string // fixed identity for local runs; main sets it only for a localhost Origin
+	Tokens    *Tokens // API keys for scripts; nil turns them off
+	Dev       string  // fixed identity for local runs; main sets it only for a localhost Origin
 }
 
 // ParseAllowlist reads "github:1,google:abc" into a set.
@@ -97,16 +98,35 @@ func (a *Auth) Identity(r *http.Request) string {
 	return id
 }
 
-// Require lets through only allowlisted users; state-changing requests must also come from the admin's own origin.
+// Require lets through only allowlisted users, by browser session or API token. State-changing browser requests must
+// also come from the admin's own origin; a token request carries no cookie, so it cannot be forged cross-site.
 func (a *Auth) Require(next func(http.ResponseWriter, *http.Request, string)) http.Handler {
+	return a.guard(true, next)
+}
+
+// RequireSession is Require for browser sessions only: used for managing tokens, so a leaked token cannot mint more.
+func (a *Auth) RequireSession(next func(http.ResponseWriter, *http.Request, string)) http.Handler {
+	return a.guard(false, next)
+}
+
+func (a *Auth) guard(allowToken bool, next func(http.ResponseWriter, *http.Request, string)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := a.Identity(r)
+		id, viaToken := "", false
+		if raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok && allowToken && a.Tokens != nil {
+			if id, ok = a.Tokens.Lookup(raw); !ok {
+				http.Error(w, "invalid or revoked token", http.StatusUnauthorized)
+				return
+			}
+			viaToken = true
+		} else {
+			id = a.Identity(r)
+		}
 		switch {
 		case id == "":
 			http.Error(w, "log in first", http.StatusUnauthorized)
 		case !a.Allow[id]:
 			http.Error(w, "not on the allowlist: "+id, http.StatusForbidden)
-		case r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("Origin") != a.Origin:
+		case !viaToken && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("Origin") != a.Origin:
 			http.Error(w, "cross-origin request refused", http.StatusForbidden)
 		default:
 			next(w, r, id)
