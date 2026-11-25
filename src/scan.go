@@ -36,8 +36,6 @@ var magics = map[string][]byte{
 // A password field on a throwaway subdomain is how credential-phishing pages look; this service has no use for one.
 var passwordInput = regexp.MustCompile(`(?i)<input[^>]*\btype\s*=\s*["']?password\b`)
 
-const maxHTMLScan = 1 << 20
-
 // ScanFile checks one stored file with the built-in rules. rel is its path inside the page.
 func ScanFile(abs, rel string) error {
 	if ext := strings.ToLower(path.Ext(rel)); blockedExt[ext] {
@@ -48,16 +46,24 @@ func ScanFile(abs, rel string) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	head, err := io.ReadAll(io.LimitReader(f, maxHTMLScan))
-	if err != nil {
+	head := make([]byte, 4) // the longest magic number
+	n, err := io.ReadFull(f, head)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return err
 	}
 	for kind, m := range magics {
-		if bytes.HasPrefix(head, m) {
+		if bytes.HasPrefix(head[:n], m) {
 			return fmt.Errorf("%w: %s looks like a %s", ErrRejected, rel, kind)
 		}
 	}
-	if ext := strings.ToLower(path.Ext(rel)); (ext == ".html" || ext == ".htm" || ext == ".svg") && passwordInput.Match(head) {
+	if ext := strings.ToLower(path.Ext(rel)); ext != ".html" && ext != ".htm" && ext != ".svg" {
+		return nil
+	}
+	rest, err := io.ReadAll(f) // the whole file (the page size limit caps it), so padding cannot hide the field
+	if err != nil {
+		return err
+	}
+	if passwordInput.Match(append(head[:n], rest...)) {
 		return fmt.Errorf("%w: %s has a password field (phishing risk)", ErrRejected, rel)
 	}
 	return nil

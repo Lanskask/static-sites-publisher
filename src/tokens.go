@@ -75,15 +75,18 @@ func (t *Tokens) Create(owner, label string) (NewToken, error) {
 
 // Lookup returns the owner of a raw token.
 func (t *Tokens) Lookup(raw string) (string, bool) {
-	b, err := os.ReadFile(filepath.Join(t.Dir, hashToken(raw)+".json"))
-	if err != nil {
-		return "", false
-	}
+	f, err := t.read(hashToken(raw) + ".json")
+	return f.Owner, err == nil && f.Owner != ""
+}
+
+// read loads one token file; list and Revoke skip a file that fails, so one bad file never blocks the rest.
+func (t *Tokens) read(file string) (tokenFile, error) {
 	var f tokenFile
-	if json.Unmarshal(b, &f) != nil || f.Owner == "" {
-		return "", false
+	b, err := os.ReadFile(filepath.Join(t.Dir, file))
+	if err == nil {
+		err = json.Unmarshal(b, &f)
 	}
-	return f.Owner, true
+	return f, err
 }
 
 func (t *Tokens) list(owner string) ([]TokenInfo, error) {
@@ -95,12 +98,7 @@ func (t *Tokens) list(owner string) ([]TokenInfo, error) {
 	}
 	out := []TokenInfo{}
 	for _, e := range ents {
-		b, err := os.ReadFile(filepath.Join(t.Dir, e.Name()))
-		if err != nil {
-			return nil, err
-		}
-		var f tokenFile
-		if json.Unmarshal(b, &f) == nil && f.Owner == owner {
+		if f, err := t.read(e.Name()); err == nil && f.Owner == owner {
 			out = append(out, f.TokenInfo)
 		}
 	}
@@ -130,14 +128,8 @@ func (t *Tokens) Revoke(owner, id string) error {
 		if !strings.HasPrefix(e.Name(), id) {
 			continue
 		}
-		p := filepath.Join(t.Dir, e.Name())
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		var f tokenFile
-		if json.Unmarshal(b, &f) == nil && f.Owner == owner {
-			return os.Remove(p)
+		if f, err := t.read(e.Name()); err == nil && f.Owner == owner {
+			return os.Remove(filepath.Join(t.Dir, e.Name()))
 		}
 	}
 	return ErrNotFound

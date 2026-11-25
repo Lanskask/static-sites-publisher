@@ -176,20 +176,20 @@ static files for `<name>.PAGES_DOMAIN`. `deploy/Caddyfile` shows the routing.
 
 ## Configuration
 
-| Variable                                   | Meaning                                                        |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| `PAGES_DOMAIN`                             | Domain pages are served under                                  |
-| `ADMIN_HOST`                               | The admin's host name (Docker setup; sets `BASE_URL`)          |
-| `ACME_EMAIL`                               | Let's Encrypt account email (Docker setup)                     |
-| `BASE_URL`                                 | The admin's own origin, used for OAuth callbacks and CSRF      |
-| `SITES_DIR`                                | Where pages, metadata and tokens live (default `./data`)       |
-| `ALLOWLIST`                                | Comma-separated identities allowed in                          |
-| `SESSION_KEY`                              | HMAC key for session cookies, at least 32 bytes                |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub login; leave empty to hide it                           |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login; leave empty to hide it                           |
-| `CLAMD_ADDR`                               | Optional `host:port` of a clamd daemon to scan uploads         |
-| `DEV_IDENTITY`                             | Fixed login for local runs; ignored unless `BASE_URL` is local |
-| `ADDR`                                     | Listen address (default `:8080`)                               |
+| Variable                                   | Meaning                                                                 |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `PAGES_DOMAIN`                             | Domain pages are served under                                           |
+| `ADMIN_HOST`                               | The admin's host name (Docker setup; sets `BASE_URL`)                   |
+| `ACME_EMAIL`                               | Let's Encrypt account email (Docker setup)                              |
+| `BASE_URL`                                 | The admin's own origin, used for OAuth callbacks and CSRF               |
+| `SITES_DIR`                                | Where pages, metadata and tokens live (default `./data`)                |
+| `ALLOWLIST`                                | Comma-separated identities allowed in                                   |
+| `SESSION_KEY`                              | Signs session cookies; at least 32 bytes. Change it to log everyone out |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub login; leave empty to hide it                                    |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login; leave empty to hide it                                    |
+| `CLAMD_ADDR`                               | Optional `host:port` of a clamd daemon to scan uploads                  |
+| `DEV_IDENTITY`                             | Fixed login for local runs; only when `BASE_URL`'s host is `localhost`  |
+| `ADDR`                                     | Listen address (default `:8080`)                                        |
 
 Limits per user (set in `src/main.go`): 30 pages, 20 MB per page, 300 MB in total, 2000 files per page.
 

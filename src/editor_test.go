@@ -260,3 +260,38 @@ func TestDraftDirIsPrivate(t *testing.T) {
 		t.Fatalf("drafts dir mode %v, err %v; unpublished HTML must not be readable by other users", fi.Mode().Perm(), err)
 	}
 }
+
+func TestDraftsSkipsStrayFiles(t *testing.T) {
+	s := newStore(t)
+	if _, err := s.SaveDraft("u1", Draft{Name: "blog", HTML: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	dir := s.draftDir("u1")
+	for _, f := range []string{"notes.txt", "bad.json", "Bad_Name.json"} {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte("{oops"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(dir, "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.Drafts("u1")
+	if err != nil || len(list) != 1 || list[0].Name != "blog" {
+		t.Fatalf("one stray file must not hide the drafts: %+v, %v", list, err)
+	}
+}
+
+func TestDraftCap(t *testing.T) {
+	s := newStore(t) // MaxPages 2, so at most 4 drafts
+	for _, n := range []string{"a", "b", "c", "d"} {
+		if _, err := s.SaveDraft("u1", Draft{Name: n, HTML: "x"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.SaveDraft("u1", Draft{Name: "e", HTML: "x"}); !errors.Is(err, ErrQuota) {
+		t.Fatalf("fifth draft: %v, want ErrQuota", err)
+	}
+	if _, err := s.SaveDraft("u1", Draft{Name: "a", HTML: "y"}); err != nil {
+		t.Fatalf("saving an existing draft again must work: %v", err)
+	}
+}

@@ -36,7 +36,8 @@ func main() {
 	if addr := os.Getenv("CLAMD_ADDR"); addr != "" { // optional: host:port of a clamd daemon
 		store.Scan = ClamdScanner(addr)
 	}
-	if err := store.Init(); err != nil {
+	err := store.Init()
+	if err != nil {
 		log.Fatal(err)
 	}
 	auth := &Auth{
@@ -46,10 +47,9 @@ func main() {
 		Providers: map[string]*Provider{},
 		Tokens:    &Tokens{Dir: filepath.Join(store.Dir, "tokens"), MaxPerOwner: 10},
 	}
-	if strings.HasPrefix(base, "http://localhost") {
-		auth.Dev = os.Getenv("DEV_IDENTITY") // never honoured on a public URL
-	} else if len(auth.Key) < 32 {
-		log.Fatal("SESSION_KEY must be at least 32 bytes")
+	auth.Dev, err = devIdentity(base, os.Getenv("DEV_IDENTITY"), auth.Key)
+	if err != nil {
+		log.Fatal(err)
 	}
 	add := func(name, idVar, secretVar, userURL string, ep oauth2.Endpoint, scopes ...string) {
 		if id := os.Getenv(idVar); id != "" {
@@ -72,6 +72,19 @@ func main() {
 	}
 	log.Printf("listening on %s, admin %s", addr, base)
 	log.Fatal(srv.ListenAndServe())
+}
+
+// devIdentity returns the fixed identity for local runs. It is honoured only when BASE_URL's host is localhost or
+// 127.0.0.1; every other setup needs a SESSION_KEY of at least 32 bytes, or anyone could forge a session cookie.
+func devIdentity(base, dev string, key []byte) (string, error) {
+	u, err := url.Parse(base)
+	if local := err == nil && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"); local && dev != "" {
+		return dev, nil
+	}
+	if len(key) < 32 {
+		return "", errors.New("SESSION_KEY must be at least 32 bytes")
+	}
+	return "", nil
 }
 
 func env(k, def string) string {
