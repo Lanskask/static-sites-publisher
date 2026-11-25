@@ -38,9 +38,8 @@ tf-plan: deploy/e2e/gcp/.terraform ## show what the GCP test VM would create (GC
 	@test -n "$(GCP_PROJECT)" || { echo "set GCP_PROJECT=<your project id>"; exit 1; }
 	$(TF) plan -var project=$(GCP_PROJECT) -out=tfplan
 
-tf-apply: ## ask, then create the GCP test VM from the plan tf-plan saved
+tf-apply: ## create the GCP test VM from the plan tf-plan saved
 	@test -f deploy/e2e/gcp/tfplan || { echo "no saved plan: run make tf-plan first"; exit 1; }
-	@read -p "Create these resources? It costs money unless free tier. [y/N] " a && [ "$$a" = y ]
 	$(TF) apply tfplan && rm deploy/e2e/gcp/tfplan
 
 tf-plan-apply: tf-plan tf-apply ## tf-plan then tf-apply
