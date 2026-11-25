@@ -36,6 +36,10 @@ before overwriting that newer version. The preview runs the page's own scripts i
 **Edit text visually** lets you click into the page and type; it appears only for pages without scripts, and the result
 lands in the source so you can review it before you publish (the markup may be reformatted).
 
+![The editor: source on the left, live preview on the right](docs/screenshots/editor.png)
+
+![Edit text visually: the heading was retyped in the preview and the source followed](docs/screenshots/editor-visual.png)
+
 **API tokens.** Open **API tokens** to create a token for scripts or an AI agent. A token can publish, list, tag and
 delete your pages, but cannot create more tokens. It is shown once; revoke it here if it leaks.
 
