@@ -56,7 +56,7 @@ What you need:
 - Docker with the compose plugin on the server: <https://docs.docker.com/engine/install/>. The ssh user must be able to
   run `docker` (root, or a member of the `docker` group).
 - A domain whose DNS you can edit, at any provider (next section), or a free DuckDNS name.
-- On your own machine: `ssh`, `rsync` and Python 3.11 or newer.
+- On your own machine: `ssh`, `tar` and Python 3.11 or newer.
 
 The stack in `deploy/` is two containers: the admin, and [Caddy](https://caddyserver.com) serving the pages and getting
 HTTPS certificates from Let's Encrypt. Pages and certificates live in Docker volumes, so redeploying keeps them.
@@ -191,6 +191,12 @@ Encrypt's test server, with a fake DNS server that sends every name to Caddy. It
 published page gets a certificate and is served, an unpublished name gets none, the admin and the 404 page work, and
 HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is the closest local test; `KEEP=1` leaves
 the stack running. `docs/screenshots/take.py` retakes the screenshots above.
+
+To test the self-hosting steps for real (DNS, Let's Encrypt, OAuth), `deploy/e2e/gcp/main.tf` creates a throwaway Google
+Compute Engine VM with Docker: `make tf-plan-apply GCP_PROJECT=<id>` shows the plan, asks, and prints the ssh target;
+`make tf-destroy GCP_PROJECT=<id>` deletes it. It needs `gcloud auth application-default login` once. `make gcp-e2e`
+does the whole test in one go (VM, DuckDNS, deploy, checks, your GitHub login, destroy); it first lists anything it
+needs and is missing.
 
 | Path          | Purpose                                                                  |
 | ------------- | ------------------------------------------------------------------------ |

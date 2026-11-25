@@ -6,16 +6,55 @@ from pathlib import Path
 
 import dns_check
 import e2e
+import gcp_e2e
 import ssh_deploy
 
 
 class DeployTest(unittest.TestCase):
     def test_commands_copy_then_compose(self):
-        cmds = ssh_deploy.commands("root@1.2.3.4", "my dir")
-        self.assertEqual(cmds[0], ["ssh", "root@1.2.3.4", "mkdir -p 'my dir'"])
-        self.assertEqual(cmds[1][-1], "root@1.2.3.4:my dir/")
-        self.assertTrue(cmds[1][-3].endswith("src") and cmds[1][-2].endswith("deploy"))
-        self.assertIn("docker compose up -d --build", cmds[2][2])
+        # the server needs only ssh, tar and Docker: no rsync (a plain Debian image has none)
+        copy, up = ssh_deploy.commands("root@1.2.3.4", "my dir")
+        self.assertEqual(ssh_deploy.TAR[-2:], ["src", "deploy"])
+        self.assertIn(
+            "deploy/e2e", ssh_deploy.TAR
+        )  # local test files and Terraform state stay home
+        self.assertEqual(copy[:2], ["ssh", "root@1.2.3.4"])
+        self.assertIn("rm -rf 'my dir'/src 'my dir'/deploy", copy[2])
+        self.assertIn("tar -xzf - -C 'my dir'", copy[2])
+        self.assertIn("docker compose up -d --build", up[2])
+        # a new Caddyfile is a new file: a running container would keep the old one bind-mounted
+        self.assertIn("--force-recreate", up[2])
+
+
+class GcpE2eTest(unittest.TestCase):
+    def test_missing_lists_everything_at_once(self):
+        got = gcp_e2e.missing(
+            {"GCP_PROJECT": "p"}, lambda t: t != "terraform", lambda p: False
+        )
+        self.assertIn("environment variable DUCKDNS_TOKEN", got)
+        self.assertNotIn("environment variable GCP_PROJECT", got)
+        self.assertIn("command terraform", got)
+        self.assertTrue(any("application-default login" in m for m in got))
+        self.assertTrue(any("ssh-keygen" in m for m in got))
+
+    def test_nothing_missing(self):
+        env = {v: "x" for v in gcp_e2e.VARS}
+        self.assertEqual(
+            gcp_e2e.missing(env, lambda t: True, lambda p: p != gcp_e2e.ENV), []
+        )
+
+    def test_env_file_is_marked_and_complete(self):
+        env = {v: "x" for v in gcp_e2e.VARS} | {"DUCKDNS_NAME": "t"}
+        text = gcp_e2e.env_file(env)
+        self.assertTrue(text.startswith(gcp_e2e.MARK))
+        vals = dns_check.read_env(self._write(text))
+        self.assertEqual(vals["ADMIN_HOST"], "admin.t.duckdns.org")
+        self.assertEqual(len(vals["SESSION_KEY"]), 64)
+
+    def _write(self, text: str) -> Path:
+        d = Path(tempfile.mkdtemp())
+        (d / ".env").write_text(text)
+        return d / ".env"
 
 
 class DnsCheckTest(unittest.TestCase):
