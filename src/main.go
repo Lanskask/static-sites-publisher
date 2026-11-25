@@ -190,6 +190,7 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	addEditorRoutes(mux, store, auth, maxUpload)
 	return securityHeaders(mux)
 }
 
@@ -232,9 +233,11 @@ func fail(w http.ResponseWriter, err error) {
 		code = http.StatusForbidden
 	case errors.Is(err, ErrNotFound):
 		code = http.StatusNotFound
+	case errors.Is(err, ErrConflict):
+		code = http.StatusPreconditionFailed
 	case errors.Is(err, ErrBadName), errors.Is(err, ErrBadPath), errors.Is(err, ErrNoIndex),
 		errors.Is(err, ErrTooMany), errors.Is(err, errBadForm), errors.Is(err, multipart.ErrMessageTooLarge),
-		errors.Is(err, ErrBadZip), errors.Is(err, ErrBadTag):
+		errors.Is(err, ErrBadZip), errors.Is(err, ErrBadTag), errors.Is(err, ErrBadFavicon):
 		code = http.StatusBadRequest
 	default:
 		log.Printf("error: %v", err)
