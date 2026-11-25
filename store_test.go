@@ -186,3 +186,32 @@ func must(t *testing.T, s *Store, owner, name string) {
 		t.Fatal(err)
 	}
 }
+
+func TestSetTags(t *testing.T) {
+	s := newStore(t)
+	if _, err := s.Deploy("me", "blog", files("index.html", "x")); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.SetTags("me", "blog", []string{" Go ", "learning", "go", ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(m.Tags, ",") != "go,learning" {
+		t.Fatalf("tags = %v, want trimmed, lowercased, deduped, sorted", m.Tags)
+	}
+	// a redeploy keeps the tags
+	if _, err := s.Deploy("me", "blog", files("index.html", "y")); err != nil {
+		t.Fatal(err)
+	}
+	if ms, _ := s.List("me"); strings.Join(ms[0].Tags, ",") != "go,learning" {
+		t.Fatalf("tags after redeploy = %v", ms[0].Tags)
+	}
+	if _, err := s.SetTags("other", "blog", []string{"x"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("other owner: err = %v, want ErrNotFound", err)
+	}
+	for _, bad := range [][]string{{"a b"}, {"<script>"}, {strings.Repeat("a", 31)}, strings.Split("a,b,c,d,e,f,g,h,i,j,k", ",")} {
+		if _, err := s.SetTags("me", "blog", bad); !errors.Is(err, ErrBadTag) {
+			t.Errorf("SetTags(%q) err = %v, want ErrBadTag", bad, err)
+		}
+	}
+}

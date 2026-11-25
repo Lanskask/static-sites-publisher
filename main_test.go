@@ -114,3 +114,24 @@ func TestListAndDelete(t *testing.T) {
 		t.Fatalf("delete status %d: %s", w.Code, w.Body)
 	}
 }
+
+func TestSetTagsAPI(t *testing.T) {
+	h, _ := newServer(t)
+	upload(t, h, "blog", "index.html", "x")
+	put := func(body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("PUT", "/api/pages/blog/tags", bytes.NewBufferString(body))
+		r.Header.Set("Origin", "http://localhost:8080")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := put(`["go","learning"]`); w.Code != 200 {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	if w := put(`["bad tag"]`); w.Code != 400 {
+		t.Fatalf("bad tag status %d, want 400", w.Code)
+	}
+	if w := put(`not json`); w.Code != 400 {
+		t.Fatalf("bad json status %d, want 400", w.Code)
+	}
+}

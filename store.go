@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,6 +28,7 @@ var (
 	ErrQuota    = errors.New("page limit reached")
 	ErrTaken    = errors.New("page name belongs to another user")
 	ErrNotFound = errors.New("page not found")
+	ErrBadTag   = errors.New("tags: at most 10, each 1-30 of a-z, 0-9 and '-'")
 	ErrBadZip   = errors.New("not a valid zip file")
 )
 
@@ -55,6 +57,7 @@ type Meta struct {
 	Created time.Time `json:"created"`
 	Updated time.Time `json:"updated"`
 	Bytes   int64     `json:"bytes"`
+	Tags    []string  `json:"tags,omitempty"`
 }
 
 // Store keeps pages on disk: Dir/pages/<name>/ (served), Dir/meta/<name>.json, Dir/tmp/ (uploads in progress).
@@ -225,7 +228,7 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 	now := time.Now().UTC()
 	m := Meta{Name: name, Owner: owner, Created: now, Updated: now, Bytes: total}
 	if old != nil {
-		m.Created = old.Created
+		m.Created, m.Tags = old.Created, old.Tags
 	}
 	return m, s.writeMeta(m)
 }
@@ -306,25 +309,62 @@ func (s *Store) List(owner string) ([]Meta, error) {
 	return mine, nil
 }
 
-// Delete removes the owner's page; another owner's page looks like a missing one.
-func (s *Store) Delete(owner, name string) error {
-	if ValidName(name) != nil {
-		return ErrNotFound
+var tagRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,29}$`)
+
+// SetTags replaces the tags of the owner's page; they are lowercased, deduplicated and sorted.
+func (s *Store) SetTags(owner, name string, tags []string) (Meta, error) {
+	set := map[string]bool{}
+	for _, t := range tags {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" {
+			continue
+		}
+		if !tagRe.MatchString(t) {
+			return Meta{}, ErrBadTag
+		}
+		set[t] = true
 	}
+	if len(set) > 10 {
+		return Meta{}, ErrBadTag
+	}
+	clean := slices.Sorted(maps.Keys(set))
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	m, err := s.owned(owner, name)
+	if err != nil {
+		return Meta{}, err
+	}
+	m.Tags = clean
+	return m, s.writeMeta(m)
+}
+
+// owned reads the meta of the owner's page; another owner's page looks like a missing one. Callers hold s.mu.
+func (s *Store) owned(owner, name string) (Meta, error) {
+	if ValidName(name) != nil {
+		return Meta{}, ErrNotFound
+	}
 	b, err := os.ReadFile(s.sub("meta", name+".json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return ErrNotFound
+		return Meta{}, ErrNotFound
 	} else if err != nil {
-		return err
+		return Meta{}, err
 	}
 	var m Meta
 	if err := json.Unmarshal(b, &m); err != nil {
-		return err
+		return Meta{}, err
 	}
 	if m.Owner != owner {
-		return ErrNotFound
+		return Meta{}, ErrNotFound
+	}
+	return m, nil
+}
+
+// Delete removes the owner's page; another owner's page looks like a missing one.
+func (s *Store) Delete(owner, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := s.owned(owner, name); err != nil {
+		return err
 	}
 	// files first: if this stops halfway, the name still has an owner
 	if err := os.RemoveAll(s.sub("pages", name)); err != nil {

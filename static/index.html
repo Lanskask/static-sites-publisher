@@ -46,9 +46,16 @@
     <section id="list">
       <h2>Your pages</h2>
       <table>
-        <thead><tr><th>Page</th><th>Size</th><th>Updated</th><th><span class="sr">Actions</span></th></tr></thead>
+        <thead><tr>
+          <th data-key="name" aria-sort="ascending"><button type="button" class="sort">Page</button></th>
+          <th>Tags</th>
+          <th data-key="bytes" aria-sort="none"><button type="button" class="sort">Size</button></th>
+          <th data-key="updated" aria-sort="none"><button type="button" class="sort">Updated</button></th>
+          <th><span class="sr">Actions</span></th>
+        </tr></thead>
         <tbody id="pages"></tbody>
       </table>
+      <datalist id="tag-options"></datalist>
     </section>
 
     <details id="tokens">
