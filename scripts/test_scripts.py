@@ -11,11 +11,18 @@ import ssh_deploy
 
 class DeployTest(unittest.TestCase):
     def test_commands_copy_then_compose(self):
-        cmds = ssh_deploy.commands("root@1.2.3.4", "my dir")
-        self.assertEqual(cmds[0], ["ssh", "root@1.2.3.4", "mkdir -p 'my dir'"])
-        self.assertEqual(cmds[1][-1], "root@1.2.3.4:my dir/")
-        self.assertTrue(cmds[1][-3].endswith("src") and cmds[1][-2].endswith("deploy"))
-        self.assertIn("docker compose up -d --build", cmds[2][2])
+        # the server needs only ssh, tar and Docker: no rsync (a plain Debian image has none)
+        copy, up = ssh_deploy.commands("root@1.2.3.4", "my dir")
+        self.assertEqual(ssh_deploy.TAR[-2:], ["src", "deploy"])
+        self.assertIn(
+            "deploy/e2e", ssh_deploy.TAR
+        )  # local test files and Terraform state stay home
+        self.assertEqual(copy[:2], ["ssh", "root@1.2.3.4"])
+        self.assertIn("rm -rf 'my dir'/src 'my dir'/deploy", copy[2])
+        self.assertIn("tar -xzf - -C 'my dir'", copy[2])
+        self.assertIn("docker compose up -d --build", up[2])
+        # a new Caddyfile is a new file: a running container would keep the old one bind-mounted
+        self.assertIn("--force-recreate", up[2])
 
 
 class DnsCheckTest(unittest.TestCase):

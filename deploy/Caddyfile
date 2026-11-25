@@ -17,7 +17,12 @@
 	}
 }
 
+# on_demand: Caddy 2.10 gives no certificate of its own to a name the *.{$PAGES_DOMAIN} block covers, and that
+# block's certificates are on-demand, so admin.{$PAGES_DOMAIN} would get none. /tls-check allows the admin host.
 {$ADMIN_HOST} {
+	tls {
+		on_demand
+	}
 	reverse_proxy admin:8080
 }
 

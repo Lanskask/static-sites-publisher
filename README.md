@@ -56,7 +56,7 @@ What you need:
 - Docker with the compose plugin on the server: <https://docs.docker.com/engine/install/>. The ssh user must be able to
   run `docker` (root, or a member of the `docker` group).
 - A domain whose DNS you can edit, at any provider (next section), or a free DuckDNS name.
-- On your own machine: `ssh`, `rsync` and Python 3.11 or newer.
+- On your own machine: `ssh`, `tar` and Python 3.11 or newer.
 
 The stack in `deploy/` is two containers: the admin, and [Caddy](https://caddyserver.com) serving the pages and getting
 HTTPS certificates from Let's Encrypt. Pages and certificates live in Docker volumes, so redeploying keeps them.
