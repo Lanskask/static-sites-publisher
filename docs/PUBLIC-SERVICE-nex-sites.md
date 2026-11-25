@@ -58,15 +58,16 @@ Do it together with these cheap, immediate signals:
 ## 4. Certificates
 
 - **Pages: one wildcard certificate** `*.nexsites-pages.app` by DNS-01. A wildcard avoids one certificate per page,
-  which would hit the Let's Encrypt limit on new certificates per registered domain per week (50 at the time of writing)
-  and would publish every page name in Certificate Transparency logs. Today: Traefik resolver `le-dns` with the DuckDNS
-  provider. Public: the same resolver with your DNS provider's API token, **scoped to that one zone**.
+  which would hit Let's Encrypt's weekly limit per registered domain (see the notes under
+  [Operations](../README.md#operations) in the README) and would publish every page name in Certificate Transparency
+  logs. Today: Traefik resolver `le-dns` with the DuckDNS provider. Public: the same resolver with your DNS provider's
+  API token, **scoped to that one zone**.
 - **Brand and admin: normal HTTP-01** per host, as `nex-core` and `nex-sites-admin` do now.
 - **Custom customer domains:** a customer points a CNAME at `custom.nexsites.dev`. Each name needs its own certificate,
-  ordered the first time it is requested. Traefik cannot order on demand; Caddy can (`on_demand_tls` with an `ask`
-  endpoint that answers 200 only for names a user has registered, which prevents anyone from burning your rate limit).
-  Verify domain ownership with a TXT record before accepting the name. Leave this for later; the wildcard is enough for
-  launch.
+  ordered the first time it is requested. Traefik cannot order on demand; Caddy can, with the same `ask` check the
+  self-host stack already uses for pages (`/tls-check`, see the README's [notes](../README.md#operations)), extended to
+  names a user has registered. Verify domain ownership with a TXT record before accepting the name. Leave this for
+  later; the wildcard is enough for launch.
 - **Storage and renewal:** certificates renew by themselves about 30 days before expiry. They live in `/data/acme.json`
   on a local-path volume. Back that file up (encrypted) and keep **staging first** when changing anything (see
   `docs/RUNBOOK-sites.md`: Traefik reuses a stored certificate and does not re-order it when you switch CA).
@@ -126,5 +127,6 @@ needed because nothing uploaded is ever executed.
 3. Reputation check, suspend action, abuse form and mailbox, brand-name block list.
 4. Signup rules, rate limits, CDN in front.
 5. Terms, privacy notice, takedown process, a provider whose policy allows hosting.
-6. Backups of `/srv/sites` and the certificate file; a restore test.
+6. Backups of the pages and the certificate store, and a restore test: see [Operations](../README.md#operations) in the
+   README.
 7. Only then open the allowlist (`ALLOWLIST` to a signup rule).
