@@ -49,6 +49,7 @@ async function start() {
 const STARTER_TAGS = ["programming", "go", "learning", "interview-prep", "security", "dashboards", "travel", "finance", "productivity"];
 let pages = [];
 let sortBy = { key: "name", dir: 1 };
+let filter = new Set(); // selected tag chips; a page must have all of them
 
 async function refresh() {
   const data = await api("GET", "/api/pages");
@@ -66,10 +67,33 @@ function render() {
   for (const th of document.querySelectorAll("th[data-key]")) {
     th.setAttribute("aria-sort", th.dataset.key === key ? (dir > 0 ? "ascending" : "descending") : "none");
   }
-  const known = new Set([...STARTER_TAGS, ...pages.flatMap((p) => p.tags || [])]);
+  const used = [...new Set(pages.flatMap((p) => p.tags || []))].sort();
+  const known = new Set([...STARTER_TAGS, ...used]);
   $("tag-options").replaceChildren(...[...known].sort().map((t) => Object.assign(document.createElement("option"), { value: t })));
 
-  const rows = sorted.map((p) => {
+  filter = new Set(used.filter((t) => filter.has(t))); // forget chips whose tag no longer exists
+  const chips = used.map((t) => {
+    const b = Object.assign(document.createElement("button"), { type: "button", className: "chip", textContent: t });
+    b.setAttribute("aria-pressed", String(filter.has(t)));
+    b.onclick = () => {
+      filter.has(t) ? filter.delete(t) : filter.add(t);
+      render();
+    };
+    return b;
+  });
+  if (filter.size) {
+    const clear = Object.assign(document.createElement("button"), { type: "button", className: "chip clear", textContent: "Show all" });
+    clear.onclick = () => {
+      filter.clear();
+      render();
+    };
+    chips.push(clear);
+  }
+  $("tag-chips").replaceChildren(...chips);
+  $("tag-filter").hidden = used.length === 0;
+
+  const shown = sorted.filter((p) => [...filter].every((t) => (p.tags || []).includes(t)));
+  const rows = shown.map((p) => {
     const tr = document.createElement("tr");
     const url = `https://${p.name}.${domain}/`;
     const link = Object.assign(document.createElement("a"), { href: url, textContent: url, target: "_blank", rel: "noopener" });
@@ -102,7 +126,8 @@ function render() {
     return tr;
   });
   if (rows.length === 0) {
-    const td = Object.assign(document.createElement("td"), { colSpan: 5, className: "empty", textContent: "No pages yet. Drop a site above to publish it." });
+    const text = pages.length ? "No pages have all the selected tags." : "No pages yet. Drop a site above to publish it.";
+    const td = Object.assign(document.createElement("td"), { colSpan: 5, className: "empty", textContent: text });
     const tr = document.createElement("tr");
     tr.append(td);
     rows.push(tr);

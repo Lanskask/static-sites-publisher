@@ -1,21 +1,26 @@
 .DEFAULT_GOAL := help
-.PHONY: help run test build deploy
+.PHONY: help run test build deploy dns-check
 
-# The Oracle VM (k3s) that serves https://nex-sites-admin.duckdns.org; infra lives in the OracleCloud repo.
-VPS_HOST ?= k3s-oracle
+# arm64 for ARM servers (Oracle Ampere, AWS Graviton, Raspberry Pi)
+GOARCH ?= amd64
+# ssh target for deploy, e.g. root@203.0.113.7
+HOST ?=
 
 help: ## list the commands
-	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
 run: ## run the admin locally at http://localhost:8080 with a fake login (dev:me)
-	DEV_IDENTITY=dev:me ALLOWLIST=dev:me SITES_DIR=./data go run .
+	cd src && DEV_IDENTITY=dev:me ALLOWLIST=dev:me SITES_DIR=../data go run .
 
-test: ## go vet, golangci-lint and go test -race
-	go vet ./... && golangci-lint run && go test -race ./...
+test: ## go vet, golangci-lint, go test -race, and the Python script tests
+	cd src && go vet ./... && golangci-lint run && go test -race ./...
+	python3 -m unittest discover -s scripts -p 'test_*.py'
 
-build: ## cross-compile for the VM (linux/arm64, static)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o sites-admin .
+build: ## static Linux binary at bin/sites-admin (GOARCH=amd64 or arm64), for servers without Docker
+	cd src && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -trimpath -o ../bin/sites-admin .
 
-deploy: build ## copy the binary to the VM and restart its pod
-	rsync -az sites-admin ubuntu@$(VPS_HOST):/opt/sites-admin/
-	ssh ubuntu@$(VPS_HOST) sudo k3s kubectl rollout restart deploy/sites-admin
+deploy: ## copy src/ and deploy/ to HOST over ssh and start them with docker compose
+	python3 scripts/ssh_deploy.py $(HOST)
+
+dns-check: ## check that the domains in deploy/.env resolve to one server
+	python3 scripts/dns_check.py

@@ -1,0 +1,39 @@
+# Pages at https://<page>.{$PAGES_DOMAIN}, the admin at https://{$ADMIN_HOST}. Values come from deploy/.env.
+# Each page gets its own certificate on its first visit (on-demand TLS, HTTP-01), so any DNS provider works:
+# no wildcard certificate and no DNS API token. The admin's /tls-check allows only published pages.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://admin:8080/tls-check
+	}
+}
+
+(notfound) {
+	handle_errors 404 {
+		root * /srv/404
+		rewrite * /404.html
+		templates
+		file_server
+	}
+}
+
+{$ADMIN_HOST} {
+	reverse_proxy admin:8080
+}
+
+# The bare domain has no page.
+{$PAGES_DOMAIN} {
+	import notfound
+	error 404
+}
+
+*.{$PAGES_DOMAIN} {
+	tls {
+		on_demand
+	}
+	import notfound
+	header X-Content-Type-Options nosniff
+	@page header_regexp page Host ^([a-z0-9-]+)\.
+	root @page /srv/sites/pages/{re.page.1}
+	file_server
+}
