@@ -132,7 +132,7 @@ function render() {
       await api("DELETE", `/api/pages/${p.name}`).catch(showError);
       refresh();
     };
-    for (const c of [[cell], [tags], [size(p.bytes)], [new Date(p.updated).toLocaleString()], [edit, " ", del]]) {
+    for (const c of [[cell], [tags], [size(p.bytes)], [new Date(p.updated).toLocaleString()], [edit, del]]) {
       const td = document.createElement("td");
       td.append(...c);
       tr.append(td);
