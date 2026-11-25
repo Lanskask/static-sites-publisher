@@ -101,7 +101,7 @@ function setState(text, error) {
 function updateButtons() {
   $("ed-discard").disabled = !drafts.has(ed.name);
   // Visual editing needs a page without scripts: the editable copy runs none, so a script page would look broken.
-  const scripty = /<script[\s>]/i.test(source.get());
+  const scripty = /<script[\s/>]/i.test(source.get());
   $("ed-visual").disabled = scripty && !ed.visual;
   $("ed-visual").title = scripty ? "This page has scripts; edit its source instead." : "";
   $("ed-visual").textContent = ed.visual ? "Preview" : "Edit text visually";
