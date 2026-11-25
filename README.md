@@ -193,7 +193,8 @@ HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is
 the stack running. `docs/screenshots/take.py` retakes the screenshots above.
 
 To test the self-hosting steps for real (DNS, Let's Encrypt, OAuth), `deploy/e2e/gcp/main.tf` creates a throwaway Google
-Compute Engine VM with Docker; its header lists the commands. Destroy it when done.
+Compute Engine VM with Docker: `make tf-plan-apply GCP_PROJECT=<id>` shows the plan, asks, and prints the ssh target;
+`make tf-destroy GCP_PROJECT=<id>` deletes it. It needs `gcloud auth application-default login` once.
 
 | Path          | Purpose                                                                  |
 | ------------- | ------------------------------------------------------------------------ |

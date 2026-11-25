@@ -1,10 +1,9 @@
 # A throwaway Google Compute Engine VM for testing the README's self-hosting steps against real DNS, real
 # Let's Encrypt and real OAuth. It is a plain Debian server with Docker, nothing GCP-specific is used by the app.
 #
-#   terraform -chdir=deploy/e2e/gcp init
-#   terraform -chdir=deploy/e2e/gcp apply -var project=MY_PROJECT     # prints the IP and the ssh target
+#   make tf-plan-apply GCP_PROJECT=my-project     # shows the plan, asks, creates; prints the IP and the ssh target
 #   ... follow README "Self-hosting" with HOST=<ssh target> ...
-#   terraform -chdir=deploy/e2e/gcp destroy -var project=MY_PROJECT
+#   make tf-destroy GCP_PROJECT=my-project
 #
 # e2-micro in us-central1 is in GCP's free tier (one per billing account); otherwise it costs about $0.01 an hour.
 
@@ -25,9 +24,15 @@ provider "google" {
   zone    = var.zone
 }
 
+resource "google_project_service" "compute" {
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false # turning it off again is slow and can break other things in the project
+}
+
 resource "google_compute_network" "e2e" {
   name                    = "sites-e2e"
   auto_create_subnetworks = true
+  depends_on              = [google_project_service.compute]
 }
 
 resource "google_compute_firewall" "web" {
