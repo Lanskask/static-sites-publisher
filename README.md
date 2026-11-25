@@ -192,6 +192,9 @@ published page gets a certificate and is served, an unpublished name gets none, 
 HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is the closest local test; `KEEP=1` leaves
 the stack running. `docs/screenshots/take.py` retakes the screenshots above.
 
+To test the self-hosting steps for real (DNS, Let's Encrypt, OAuth), `deploy/e2e/gcp/main.tf` creates a throwaway Google
+Compute Engine VM with Docker; its header lists the commands. Destroy it when done.
+
 | Path          | Purpose                                                                  |
 | ------------- | ------------------------------------------------------------------------ |
 | `src/`        | The Go service: `main.go` (config, routes), `auth.go`, `store.go`, ...   |
