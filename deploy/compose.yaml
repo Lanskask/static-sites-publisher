@@ -1,0 +1,29 @@
+# The admin writes pages into the "sites" volume; Caddy serves them read-only and handles HTTPS.
+services:
+  admin:
+    build: { context: ../src, dockerfile: ../deploy/Dockerfile }
+    env_file: .env
+    environment:
+      BASE_URL: https://${ADMIN_HOST}
+    volumes: [sites:/srv/sites]
+    tmpfs: [/tmp] # multipart uploads spool here
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    env_file: .env
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./404.html:/srv/404/404.html:ro
+      - sites:/srv/sites:ro
+      - caddy-data:/data
+    depends_on: [admin]
+    restart: unless-stopped
+
+volumes:
+  sites:
+  caddy-data:

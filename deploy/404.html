@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>No page here</title>
+<style>
+:root{color-scheme:light dark;--bg:oklch(.975 .006 95);--ink:oklch(.24 .02 150);--muted:oklch(.47 .02 150);--accent:oklch(.45 .11 155);--line:oklch(.88 .01 120)}
+@media(prefers-color-scheme:dark){:root{--bg:oklch(.2 .012 150);--ink:oklch(.94 .01 110);--muted:oklch(.72 .015 140);--accent:oklch(.78 .13 155);--line:oklch(.34 .015 150)}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:1.5rem;background:var(--bg);color:var(--ink);font:1rem/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{width:min(34rem,100%)}
+svg{display:block;width:100%;height:auto;color:var(--accent);margin-bottom:2rem}
+.door{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.floor{stroke:var(--line);stroke-width:2;stroke-linecap:round}
+.ajar{transform-origin:46px 118px;animation:ajar 1.4s cubic-bezier(.16,1,.3,1) both}
+@keyframes ajar{from{transform:scaleX(1)}to{transform:scaleX(.62)}}
+h1{margin:0 0 .5rem;font-size:clamp(1.75rem,6vw,2.5rem);line-height:1.1;font-weight:650;letter-spacing:-.025em;text-wrap:balance}
+p{margin:0 0 1.5rem;color:var(--muted);max-width:44ch;text-wrap:pretty}
+code{font:.9em ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink);overflow-wrap:anywhere}
+a{color:var(--accent);font-weight:550;text-underline-offset:.2em}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+::selection{background:var(--accent);color:var(--bg)}
+@media(prefers-reduced-motion:reduce){.ajar{animation:none;transform:scaleX(.62)}}
+</style>
+</head>
+<body>
+<main>
+<svg viewBox="0 0 320 150" role="img" aria-label="An open door with nothing behind it">
+<line class="floor" x1="8" y1="128" x2="312" y2="128"/>
+<rect class="door" x="46" y="22" width="76" height="106" rx="3"/>
+<g class="ajar"><path class="door" d="M46 22h76v106H46z" transform="translate(0 0)"/><circle class="door" cx="110" cy="76" r="3"/></g>
+<path class="door" d="M170 128V54h80v74" stroke-dasharray="3 7"/>
+</svg>
+<h1>No page here</h1>
+<p><code id="h">This address</code> is not published. The name may be misspelled, or the page was deleted.</p>
+<a href="https://{{env "ADMIN_HOST"}}/">Publish your own page</a>
+</main>
+<script>document.getElementById("h").textContent=location.hostname</script>
+</body>
+</html>

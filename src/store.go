@@ -84,6 +84,12 @@ func (s *Store) Init() error {
 	return nil
 }
 
+// Exists reports whether a page is published; name must already be valid.
+func (s *Store) Exists(name string) bool {
+	_, err := os.Stat(s.sub("meta", name+".json"))
+	return err == nil
+}
+
 func (s *Store) sub(parts ...string) string {
 	return filepath.Join(append([]string{s.Dir}, parts...)...)
 }

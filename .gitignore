@@ -1,2 +1,5 @@
 data/
+bin/
 sites-admin
+deploy/.env
+__pycache__/

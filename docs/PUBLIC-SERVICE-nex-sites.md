@@ -1,6 +1,6 @@
 # nex-sites as a stand-alone public service
 
-How the drag-and-drop publisher (`sites-admin/` plus the pages nginx) could run as its own public product, and what
+How the drag-and-drop publisher (`src/` plus a static file server) could run as its own public product, and what
 protects its reputation. Facts about outside rules (Let's Encrypt limits, Public Suffix List, Safe Browsing) were
 written from memory of their public documentation and are unverified: check each source before you rely on it.
 
@@ -78,9 +78,9 @@ Do it together with these cheap, immediate signals:
 
 Layers, cheapest first. The first two exist in the code now.
 
-1. **Built-in scan on upload (`sites-admin/scan.go`, done):** refuses programs and server-side scripts (`.exe`, `.php`,
-   `.sh`, `.jar` and others), files whose first bytes say executable (PE, ELF, Mach-O, `#!`), and HTML or SVG with a
-   password field. It cannot catch a clever fake login without a password field or a link to malware elsewhere.
+1. **Built-in scan on upload (`src/scan.go`, done):** refuses programs and server-side scripts (`.exe`, `.php`, `.sh`,
+   `.jar` and others), files whose first bytes say executable (PE, ELF, Mach-O, `#!`), and HTML or SVG with a password
+   field. It cannot catch a clever fake login without a password field or a link to malware elsewhere.
 2. **Optional ClamAV (`CLAMD_ADDR`, code done, daemon not deployed):** every file goes to `clamd`; a failed scan fails
    the upload. `clamd` needs about 1 GB of RAM for its signature database, more than this VM can spare today.
 3. **Link and reputation check of published URLs:** ask Google Safe Browsing (Lookup API v4 is free for non-commercial

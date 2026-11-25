@@ -135,3 +135,25 @@ func TestSetTagsAPI(t *testing.T) {
 		t.Fatalf("bad json status %d, want 400", w.Code)
 	}
 }
+
+func TestTLSCheck(t *testing.T) {
+	h, _ := newServer(t)
+	if w := upload(t, h, "demo", "index.html", "<p>hi</p>"); w.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", w.Code, w.Body)
+	}
+	for domain, want := range map[string]int{
+		"demo.pages.test":   http.StatusOK,
+		"nope.pages.test":   http.StatusNotFound, // not published
+		"demo.other.test":   http.StatusNotFound, // not our domain
+		"pages.test":        http.StatusNotFound,
+		"a.demo.pages.test": http.StatusNotFound,
+		"admin.pages.test":  http.StatusNotFound, // reserved
+		"":                  http.StatusNotFound,
+	} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "/tls-check?domain="+domain, nil))
+		if w.Code != want {
+			t.Errorf("%q: got %d, want %d", domain, w.Code, want)
+		}
+	}
+}

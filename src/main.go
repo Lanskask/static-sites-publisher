@@ -90,7 +90,14 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 	mux.HandleFunc("GET /auth/{provider}/start", auth.Start)
 	mux.HandleFunc("GET /auth/{provider}/callback", auth.Callback)
 	mux.HandleFunc("POST /logout", auth.Logout)
-	mux.HandleFunc("GET /api/providers", func(w http.ResponseWriter, _ *http.Request) {
+	// Caddy's on-demand TLS asks here before it gets a certificate for <page>.<PAGES_DOMAIN>: only published pages get one.
+	mux.HandleFunc("GET /tls-check", func(w http.ResponseWriter, r *http.Request) {
+		name, ok := strings.CutSuffix(r.URL.Query().Get("domain"), "."+pagesDomain)
+		if !ok || ValidName(name) != nil || !store.Exists(name) {
+			http.NotFound(w, r)
+		}
+	})
+	mux.HandleFunc("GET /api/providers",func(w http.ResponseWriter, _ *http.Request) {
 		names := []string{}
 		for n := range auth.Providers {
 			names = append(names, n)
