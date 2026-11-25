@@ -78,11 +78,11 @@ If the wait times out, `wait()` still raises, so a real failure still fails the 
 Run it from a real terminal, without `</dev/null`, so the GitHub login step runs:
 
 ```bash
-cd ~/Programming/My_Projects/static-sites-publish && ssh-keygen -R <vm-ip>; GCP_PROJECT=site-publisher-test DUCKDNS_NAME=site-publisher-test DUCKDNS_TOKEN=$(kpass NEX_CORE_DUCKDNS_TOKEN) GITHUB_CLIENT_ID=$(kpass SITES_E2E_GITHUB_ID) GITHUB_CLIENT_SECRET=$(kpass SITES_E2E_GITHUB_SECRET) ALLOWLIST=github:15252341 make gcp-e2e
+cd ~/Programming/My_Projects/static-sites-publish && GCP_PROJECT=site-publisher-test DUCKDNS_NAME=site-publisher-test DUCKDNS_TOKEN=$(kpass NEX_CORE_DUCKDNS_TOKEN) GITHUB_CLIENT_ID=$(kpass SITES_E2E_GITHUB_ID) GITHUB_CLIENT_SECRET=$(kpass SITES_E2E_GITHUB_SECRET) ALLOWLIST=github:15252341 make gcp-e2e
 ```
 
-Replace `<vm-ip>` with the IP from the previous run's `known_hosts` line, or skip the `ssh-keygen -R` if it is not
-there. Each run creates a new VM and IP.
+Each run creates a new VM and IP. The script removes that IP from `~/.ssh/known_hosts` itself (`ssh-keygen -R`), so no
+manual cleanup is needed.
 
 ### Success looks like
 
@@ -102,6 +102,7 @@ Look for certificate or ACME errors for the bare domain. Those would mean a real
 
 ## Open items
 
-- The two timing causes are still inferred. Run 3 passed with the waits, but its log does not show how many retries each
-  wait needed, so it does not prove the cause.
-- `known_hosts` must be cleared by hand each run, since every run gets a new IP. The script could do it.
+- The two timing causes are still inferred. Run 3 passed with the waits, but its log did not show how many retries each
+  wait needed, so it does not prove the cause. `wait()` now prints `ready after N retries`: a nonzero N in the next run
+  confirms the race, and `0` means the waits were not needed that time.
+- The next run is the first with the `known_hosts` cleanup and the retry count, and neither has run live yet.

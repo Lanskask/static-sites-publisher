@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 import dns_check
@@ -120,13 +121,23 @@ def curl(url: str, *extra: str) -> tuple[int, str, str]:
     return r.returncode, status, body
 
 
-def wait(what: str, ok, seconds: int) -> None:
+def wait(what: str, ok: Callable[[], bool], seconds: int, sleep: Callable[[float], None] = time.sleep) -> int:
+    """Poll ok() every 10s until it is true or `seconds` pass; returns how many retries it needed."""
     print(f"waiting for {what} (up to {seconds}s)")
     end = time.time() + seconds
+    retries = 0
     while not ok():
         if time.time() > end:
             raise SystemExit(f"timed out waiting for {what}")
-        time.sleep(10)
+        sleep(10)
+        retries += 1
+    print(f"  ready after {retries} retries")
+    return retries
+
+
+def forget_host(ip: str, run: Callable[..., object] = subprocess.run) -> None:
+    """Drop the VM's old key from known_hosts: every run gets a new VM, and a reused IP would fail the key check."""
+    run(["ssh-keygen", "-R", ip], check=False, capture_output=True)
 
 
 def main() -> None:
@@ -154,6 +165,7 @@ def main() -> None:
         tf("apply", "-auto-approve", "-input=false", "-var", project)
         ip = tf("output", "-raw", "ip", capture_output=True).stdout.strip()
         host = tf("output", "-raw", "ssh", capture_output=True).stdout.strip()
+        forget_host(ip)
 
         with urllib.request.urlopen(
             duckdns_url(e["DUCKDNS_NAME"], e["DUCKDNS_TOKEN"], ip)
