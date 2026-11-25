@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help run test build deploy dns-check e2e
+.PHONY: help run test build deploy dns-check e2e vendor-editor
 
 # arm64 for ARM servers (Oracle Ampere, AWS Graviton, Raspberry Pi)
 GOARCH ?= amd64
@@ -27,3 +27,7 @@ dns-check: ## check that the domains in deploy/.env resolve to one server
 
 e2e: ## run deploy/ on local Docker with certificates from Pebble (Let's Encrypt's test server); KEEP=1 leaves it up
 	python3 scripts/e2e.py $(if $(KEEP),--keep)
+
+vendor-editor: ## rebuild src/static/vendor/codemirror.js from tools/codemirror (needs Node; only when upgrading CodeMirror)
+	cd tools/codemirror && npm ci && npx esbuild entry.js --bundle --format=esm --minify --legal-comments=eof \
+		--outfile=../../src/static/vendor/codemirror.js

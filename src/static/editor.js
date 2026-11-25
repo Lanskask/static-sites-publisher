@@ -21,12 +21,41 @@ const TEMPLATE = `<!doctype html>
 </html>
 `;
 
-// The source box. CodeMirror (vendor/codemirror.js), when it loads, replaces get/set and calls onChange itself.
+// The source box: a plain textarea until CodeMirror (vendor/codemirror.js, loaded on first open) takes over. If that
+// file fails to load, the textarea keeps working.
 const source = {
   get: () => $("ed-src").value,
   set: (text) => { $("ed-src").value = text; },
 };
 $("ed-src").addEventListener("input", () => changed());
+
+let codeMirror = null;
+function loadCodeMirror() {
+  codeMirror ??= import("./vendor/codemirror.js").then(({ EditorView, basicSetup, html, oneDark }) => {
+    let quiet = false; // set while the program replaces the text, so that is not taken for an edit
+    // In a shadow root CodeMirror styles itself with constructable stylesheets; on the document it would add <style>
+    // tags, which the admin's CSP (default-src 'self') blocks. The textarea, now unslotted, is no longer shown.
+    const root = $("ed-code").attachShadow({ mode: "open" });
+    const view = new EditorView({
+      parent: root,
+      root,
+      doc: $("ed-src").value,
+      extensions: [
+        basicSetup, html(), EditorView.lineWrapping,
+        EditorView.theme({ "&": { flex: "1", minWidth: "0", fontSize: "0.85rem" }, ".cm-scroller": { fontFamily: "var(--mono)" } }),
+        ...(matchMedia("(prefers-color-scheme: dark)").matches ? [oneDark] : []),
+        EditorView.updateListener.of((u) => { if (u.docChanged && !quiet) changed(); }),
+      ],
+    });
+    source.get = () => view.state.doc.toString();
+    source.set = (text) => {
+      quiet = true;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+      quiet = false;
+    };
+  }).catch((e) => console.warn("CodeMirror did not load; using the plain textarea", e));
+  return codeMirror;
+}
 
 let ed = null; // {name, base, isNew, saved}: the page being edited
 let saveTimer = 0;
@@ -36,6 +65,7 @@ async function openEditor(name, isNew) {
   ed = { name, base: null, isNew, saved: true };
   let html = TEMPLATE;
   try {
+    if (!name) throw Object.assign(new Error("new page"), { status: 404 });
     const d = await api("GET", `/api/drafts/${name}`);
     html = d.html;
     ed.base = d.base;
@@ -56,6 +86,7 @@ async function openEditor(name, isNew) {
   $("ed-title").textContent = name ? (isNew ? `New page: ${name}` : `Edit ${name}`) : "New page";
   $("ed-name-field").hidden = Boolean(name);
   $("ed-name").value = name || "";
+  await loadCodeMirror();
   source.set(html);
   updateButtons();
   showPreview();
