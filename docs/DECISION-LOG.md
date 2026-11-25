@@ -15,7 +15,7 @@
 
 - OAuth only, with an allowlist of `github:<id>` or `google:<sub>` identities (owner's requirement: no password store to
   protect, reset or leak). The allowlist keeps the service private; opening it to the public is a separate decision, see
-  `docs/PUBLIC-SERVICE-nex-sites.md`.
+  `docs/PUBLIC-SERVICE.md`.
 - Identities are the provider's numeric id or `sub`, not the login name, which can be renamed and reused. A GitHub and a
   Google login of the same person are two owners.
 - The session is an HMAC-signed `__Host-session` cookie: no server-side session store, and the `__Host-` prefix means a

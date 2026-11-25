@@ -1,4 +1,4 @@
-# nex-sites as a stand-alone public service
+# site-publisher as a stand-alone public service
 
 How the drag-and-drop publisher (`src/` plus a static file server) could run as its own public product, and what
 protects its reputation. Facts about outside rules (Let's Encrypt limits, Public Suffix List, Safe Browsing) were
@@ -13,16 +13,17 @@ closed for a terms-of-use breach. Everything below serves that one goal.
 
 ## 2. Domains
 
-| Name role     | Example              | Why it is separate                                                                   |
-| ------------- | -------------------- | ------------------------------------------------------------------------------------ |
-| Brand and web | `nexsites.dev`       | Marketing site, login, admin, email. Must never share a registered domain with pages |
-| Pages         | `nexsites-pages.app` | Only user content. If it is flagged, the brand domain and its email are untouched    |
-| Custom (user) | `blog.customer.com`  | Optional, later: the customer's own name pointing at their page                      |
+| Name role     | Example                   | Why it is separate                                                                   |
+| ------------- | ------------------------- | ------------------------------------------------------------------------------------ |
+| Brand and web | `sitepublisher.dev`       | Marketing site, login, admin, email. Must never share a registered domain with pages |
+| Pages         | `sitepublisher-pages.app` | Only user content. If it is flagged, the brand domain and its email are untouched    |
+| Custom (user) | `blog.customer.com`       | Optional, later: the customer's own name pointing at their page                      |
 
 Rules:
 
 - **Two registered domains, not one with two subdomains.** Browsers and blocklists judge reputation per registered
-  domain (or per Public Suffix List entry, below). User content on `pages.nexsites.dev` shares fate with `nexsites.dev`.
+  domain (or per Public Suffix List entry, below). User content on `pages.sitepublisher.dev` shares fate with
+  `sitepublisher.dev`.
 - Register both for several years and enable registrar lock. A cheap TLD with a bad reputation (`.xyz`, `.top`) is
   blocked by many mail and security filters; prefer `.app`, `.dev`, `.page` or `.com`.
 - DuckDNS does not work for this: you do not control the zone, you cannot add an NS or TXT record at will, and it cannot
@@ -33,15 +34,15 @@ Rules:
 The **Public Suffix List** (PSL, `publicsuffix.org`) is the list browsers use to decide where "one site" ends.
 `github.io`, `vercel.app` and `pages.dev` are on it. Entries on it get three protections:
 
-1. **Cookies and storage are isolated.** `a.nexsites-pages.app` cannot set a cookie for `b.nexsites-pages.app` or for
-   the whole domain (the "supercookie" rule). This is already why the admin lives on another name today.
+1. **Cookies and storage are isolated.** `a.sitepublisher-pages.app` cannot set a cookie for `b.sitepublisher-pages.app`
+   or for the whole domain (the "supercookie" rule). This is already why the admin lives on another name today.
 2. **Reputation is judged per subdomain.** Chrome and Firefox Safe Browsing and Microsoft SmartScreen treat each
-   `<page>.nexsites-pages.app` as its own site, so a phishing page blocks that one address, not the whole domain.
+   `<page>.sitepublisher-pages.app` as its own site, so a phishing page blocks that one address, not the whole domain.
    Without a PSL entry the blocklist can flag the registered domain and every page goes down at once.
 3. Browsers and mail tools stop treating the pages as one organisation (no shared "same-site" credentials, separate
    address-bar highlighting of the registrable part).
 
-How: open a pull request against `publicsuffix/list` adding `nexsites-pages.app` to the private section, with a
+How: open a pull request against `publicsuffix/list` adding `sitepublisher-pages.app` to the private section, with a
 `_psl.<domain>` TXT record proving you control it and a short description of the service. Their guidelines ask for a
 domain registered for a long period and a real, running service; read the current `CONTRIBUTING` before applying. Review
 takes weeks and browsers pick the change up over their release cycle, so submit **before** launch.
