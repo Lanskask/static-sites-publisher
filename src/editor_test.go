@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -227,5 +228,35 @@ func TestPreviewIsSandboxed(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(csp, "sandbox allow-scripts") || strings.Contains(csp, "allow-same-origin") ||
 		!strings.Contains(csp, "frame-ancestors 'self'") {
 		t.Fatalf("preview: %d, CSP %q", w.Code, csp)
+	}
+}
+
+func TestVisualPreviewBlocksPageScripts(t *testing.T) {
+	h, _ := newServer(t)
+	get := func() (string, string) {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "/preview?mode=edit", nil))
+		return w.Header().Get("Content-Security-Policy"), w.Body.String()
+	}
+	csp, body := get()
+	m := regexp.MustCompile(`script-src 'nonce-([A-Za-z0-9+/=_-]{16,})'`).FindStringSubmatch(csp)
+	if m == nil || !strings.Contains(csp, "sandbox allow-scripts") || strings.Contains(csp, "allow-same-origin") ||
+		strings.Contains(csp, "unsafe-eval") || !strings.Contains(csp, "frame-ancestors 'self'") ||
+		!strings.Contains(body, `nonce="`+m[1]+`"`) {
+		t.Fatalf("visual preview CSP %q", csp)
+	}
+	if csp2, _ := get(); csp2 == csp {
+		t.Fatal("nonce is reused between requests")
+	}
+}
+
+func TestDraftDirIsPrivate(t *testing.T) {
+	s := newStore(t)
+	if _, err := s.SaveDraft("u1", Draft{Name: "blog", HTML: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(s.draftDir("u1"))
+	if err != nil || fi.Mode().Perm() != 0o700 {
+		t.Fatalf("drafts dir mode %v, err %v; unpublished HTML must not be readable by other users", fi.Mode().Perm(), err)
 	}
 }

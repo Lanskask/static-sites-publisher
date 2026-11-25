@@ -80,4 +80,34 @@ with sync_playwright() as p:
     pg.wait_for_selector("#pages tr td a")
     pg.click("#tokens summary")
     shot(pg, pg.locator("#tokens"), "tokens.png")
+    # the page editor: source with live preview, then click-to-edit text
+    page = (
+        "<!doctype html><html><head><title>Trip budget</title><style>"
+        "body{font:18px/1.5 Georgia,serif;max-width:30em;margin:2em auto;color:#222}"
+        "h1{color:#b3470f}</style></head><body><h1>Trip budget</h1>"
+        "<p>Flights, a room for five nights and food: about 1,200 euros.</p>"
+        "<p>Book the flights before the fares go up.</p></body></html>"
+    )
+    file = {"name": "index.html", "mimeType": "text/html", "buffer": page.encode()}
+    r = pg.request.post(
+        f"{URL}/api/pages",
+        multipart={"name": "trip-budget", "path": "index.html", "file": file},
+    )
+    assert r.ok, r.text()
+    pg.set_viewport_size({"width": 1300, "height": 460})
+    pg.reload()
+    pg.click("tr:has-text('trip-budget') >> text=Edit")
+    pg.wait_for_selector(".cm-content")
+    h1 = pg.frame_locator("#ed-preview").locator("h1")
+    h1.wait_for()
+    pg.screenshot(path=OUT / "editor.png")
+    pg.click("#ed-visual")
+    h1.wait_for()
+    pg.wait_for_timeout(500)  # the shell swaps the page in after the frame loads
+    h1.click()
+    pg.keyboard.press("End")
+    pg.keyboard.type(" for Lisbon")
+    pg.wait_for_timeout(600)
+    pg.screenshot(path=OUT / "editor-visual.png")
+    pg.request.delete(f"{URL}/api/drafts/trip-budget")
     b.close()

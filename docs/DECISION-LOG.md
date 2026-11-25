@@ -103,3 +103,14 @@
   - Caddy 2.10 gives no certificate of its own to a name covered by a wildcard site, and the `*.PAGES_DOMAIN` site's
     certificates are on-demand, so `admin.PAGES_DOMAIN` got none ("no certificate available"). The admin's site block is
     now `on_demand` too; `/tls-check` already allows the admin host.
+
+## 2026-11-25: Visual text editing: `designMode` on the real page, result goes into the source
+
+- **Edit text visually** (owner asked for WYSIWYG; Phase 2 of `docs/plans/wysiwyg-editor.md`) turns on `designMode` for
+  the page itself, not a rich-text library, so `<head>`, `<style>` and the doctype survive.
+- Offered only for pages without `<script>`: the editable copy runs no scripts. `/preview?mode=edit` has a CSP
+  `script-src 'nonce-...'` (new nonce per request) that lets only the shell run; the page is parsed with `DOMParser` and
+  its scripts are removed. Still `sandbox allow-scripts` without `allow-same-origin`.
+- Each edit posts `outerHTML` back into the source buffer instead of saving: `outerHTML` reformats the markup (quotes,
+  whitespace), so the owner sees the change in the source before Publish. Byte-exact output is not possible in this
+  mode; the source editor stays the lossless path.

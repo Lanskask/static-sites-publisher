@@ -46,7 +46,7 @@ func (s *Store) SaveDraft(owner string, d Draft) (Draft, error) {
 		return Draft{}, err
 	}
 	dir := s.draftDir(owner)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Draft{}, err
 	}
 	tmp, err := os.CreateTemp(s.sub("tmp"), "draft-")
