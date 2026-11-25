@@ -249,3 +249,14 @@ func TestVisualPreviewBlocksPageScripts(t *testing.T) {
 		t.Fatal("nonce is reused between requests")
 	}
 }
+
+func TestDraftDirIsPrivate(t *testing.T) {
+	s := newStore(t)
+	if _, err := s.SaveDraft("u1", Draft{Name: "blog", HTML: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(s.draftDir("u1"))
+	if err != nil || fi.Mode().Perm() != 0o700 {
+		t.Fatalf("drafts dir mode %v, err %v; unpublished HTML must not be readable by other users", fi.Mode().Perm(), err)
+	}
+}
