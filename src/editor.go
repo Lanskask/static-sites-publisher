@@ -1,13 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,6 +49,13 @@ func (s *Store) SaveDraft(owner string, d Draft) (Draft, error) {
 	dir := s.draftDir(owner)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Draft{}, err
+	}
+	if _, err := os.Stat(filepath.Join(dir, d.Name+".json")); errors.Is(err, os.ErrNotExist) {
+		if ents, err := os.ReadDir(dir); err != nil {
+			return Draft{}, err
+		} else if len(ents) >= 2*s.MaxPages { // room for a draft of every page plus as many new ones
+			return Draft{}, fmt.Errorf("%w: too many drafts; publish or discard some", ErrQuota)
+		}
 	}
 	tmp, err := os.CreateTemp(s.sub("tmp"), "draft-")
 	if err != nil {
@@ -92,9 +100,14 @@ func (s *Store) Drafts(owner string) ([]Draft, error) {
 	}
 	list := []Draft{}
 	for _, e := range ents {
-		d, err := s.GetDraft(owner, strings.TrimSuffix(e.Name(), ".json"))
-		if err != nil {
-			return nil, err
+		name, ok := strings.CutSuffix(e.Name(), ".json")
+		if !ok || e.IsDir() {
+			continue
+		}
+		d, err := s.GetDraft(owner, name)
+		if err != nil { // a stray or damaged file must not hide the other drafts
+			log.Printf("skipping draft %s: %v", e.Name(), err)
+			continue
 		}
 		d.HTML = ""
 		list = append(list, d)
@@ -135,7 +148,7 @@ func (s *Store) Publish(owner, name string, force bool) (Meta, error) {
 		return Meta{}, err
 	}
 	entries := []Entry{{Path: "index.html", Open: func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader([]byte(d.HTML))), nil
+		return io.NopCloser(strings.NewReader(d.HTML)), nil
 	}}}
 	// shortcut: the check and Deploy take the lock separately, so an upload in between wins silently; fine for one
 	// owner editing their own pages, hold s.mu across both if several people share pages.

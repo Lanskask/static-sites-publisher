@@ -172,28 +172,12 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 		return Meta{}, err
 	}
 
+	// The lock is held only for the checks and the swap, so a slow copy or virus scan does not stall other requests.
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	all, err := s.all()
+	_, used, err := s.check(owner, name)
+	s.mu.Unlock()
 	if err != nil {
 		return Meta{}, err
-	}
-	var old *Meta
-	var used int64
-	count := 0
-	for i, m := range all {
-		switch {
-		case m.Name == name && m.Owner != owner:
-			return Meta{}, ErrTaken
-		case m.Name == name:
-			old = &all[i]
-		case m.Owner == owner:
-			count++
-			used += m.Bytes
-		}
-	}
-	if old == nil && count >= s.MaxPages {
-		return Meta{}, ErrQuota
 	}
 
 	tmp, err := os.MkdirTemp(s.sub("tmp"), name+"-")
@@ -219,6 +203,15 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 		return Meta{}, err
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, used, err := s.check(owner, name) // again: another upload may have taken the name or the quota meanwhile
+	if err != nil {
+		return Meta{}, err
+	}
+	if used+total > s.MaxUserBytes {
+		return Meta{}, ErrTooBig
+	}
 	final := s.sub("pages", name)
 	trash := tmp + ".old"
 	if old != nil {
@@ -227,6 +220,9 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 		}
 	}
 	if err := os.Rename(tmp, final); err != nil {
+		if old != nil {
+			_ = os.Rename(trash, final) // put the live version back; Init would delete it from tmp/
+		}
 		return Meta{}, err
 	}
 	_ = os.RemoveAll(trash) // the new version is live; a leftover is removed by the next Init
@@ -237,6 +233,33 @@ func (s *Store) Deploy(owner, name string, in []Entry) (Meta, error) {
 		m.Created, m.Tags = old.Created, old.Tags
 	}
 	return m, s.writeMeta(m)
+}
+
+// check returns the owner's earlier version of name (nil for a new page) and the bytes their other pages use.
+// Callers hold s.mu.
+func (s *Store) check(owner, name string) (*Meta, int64, error) {
+	all, err := s.all()
+	if err != nil {
+		return nil, 0, err
+	}
+	var old *Meta
+	var used int64
+	count := 0
+	for i, m := range all {
+		switch {
+		case m.Name == name && m.Owner != owner:
+			return nil, 0, ErrTaken
+		case m.Name == name:
+			old = &all[i]
+		case m.Owner == owner:
+			count++
+			used += m.Bytes
+		}
+	}
+	if old == nil && count >= s.MaxPages {
+		return nil, 0, ErrQuota
+	}
+	return old, used, nil
 }
 
 func copyLimited(dst string, e Entry, remaining int64) (int64, error) {

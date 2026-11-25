@@ -34,10 +34,14 @@ addEventListener("message", e => {
   doc.querySelectorAll("script").forEach(s => s.remove());
   document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
   document.designMode = "on";
+  let t = 0; // one post per typing pause, not per keystroke: each one copies the whole page
   document.addEventListener("input", () => {
-    const root = document.documentElement.cloneNode(true);
-    root.querySelectorAll("base[data-ed]").forEach(b => b.remove());
-    parent.postMessage({ visual: doctype + "\n" + root.outerHTML }, "*");
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const root = document.documentElement.cloneNode(true);
+      root.querySelectorAll("base[data-ed]").forEach(b => b.remove());
+      parent.postMessage({ visual: doctype + "\n" + root.outerHTML }, "*");
+    }, 250);
   });
 }, { once: true });
 parent.postMessage("preview-ready", "*");

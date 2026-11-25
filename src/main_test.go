@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -155,6 +156,30 @@ func TestTLSCheck(t *testing.T) {
 		h.ServeHTTP(w, httptest.NewRequest("GET", "/tls-check?domain="+domain, nil))
 		if w.Code != want {
 			t.Errorf("%q: got %d, want %d", domain, w.Code, want)
+		}
+	}
+}
+
+func TestDevIdentity(t *testing.T) {
+	key := []byte(strings.Repeat("k", 32))
+	tests := []struct {
+		base, dev string
+		key       []byte
+		want      string
+		wantErr   bool
+	}{
+		{"http://localhost:8080", "dev:me", nil, "dev:me", false},
+		{"http://127.0.0.1:8080", "dev:me", nil, "dev:me", false},
+		{"https://admin.example.com", "", key, "", false},
+		{"https://admin.example.com", "dev:me", key, "", false}, // never on a public URL
+		{"http://localhost.evil.com", "dev:me", nil, "", true},  // not localhost
+		{"http://localhost:8080", "", nil, "", true},            // no dev identity: a real key is needed
+		{"https://admin.example.com", "", []byte("short"), "", true},
+	}
+	for _, tc := range tests {
+		got, err := devIdentity(tc.base, tc.dev, tc.key)
+		if got != tc.want || (err != nil) != tc.wantErr {
+			t.Errorf("devIdentity(%q, %q, %d bytes) = %q, %v", tc.base, tc.dev, len(tc.key), got, err)
 		}
 	}
 }

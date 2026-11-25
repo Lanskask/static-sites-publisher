@@ -215,3 +215,25 @@ func TestSetTags(t *testing.T) {
 		}
 	}
 }
+
+func TestDeploySameNameConcurrently(t *testing.T) {
+	s := newStore(t)
+	errs := make(chan error, 2)
+	for _, owner := range []string{"u1", "u2"} {
+		go func() {
+			_, err := s.Deploy(owner, "race", files("index.html", "<p>"+owner))
+			errs <- err
+		}()
+	}
+	ok := 0
+	for range 2 {
+		if err := <-errs; err == nil {
+			ok++
+		} else if !errors.Is(err, ErrTaken) {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if ok != 1 {
+		t.Fatalf("%d owners got the same name, want exactly 1", ok)
+	}
+}

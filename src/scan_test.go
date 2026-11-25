@@ -117,3 +117,12 @@ func TestClamdDownRejectsUpload(t *testing.T) { // fail closed: no scan, no publ
 		t.Fatalf("err=%v, want a scanner error that is not ErrRejected", err)
 	}
 }
+
+func TestPasswordFieldAfterPaddingIsFound(t *testing.T) {
+	s := newStore(t)
+	s.MaxPageBytes, s.MaxUserBytes = 4<<20, 4<<20
+	page := "<!--" + strings.Repeat("x", 2<<20) + "--><input type=password>"
+	if _, err := s.Deploy("u1", "pad", files("index.html", page)); !errors.Is(err, ErrRejected) {
+		t.Fatalf("err=%v, want ErrRejected", err)
+	}
+}
