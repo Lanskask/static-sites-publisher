@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 let chosen = []; // [{path, file}]
 let domain = "";
 let existing = new Set(); // page names that publishing would replace
+let drafts = new Set(); // page names with an unpublished draft (editor.js)
 
 async function api(method, url, body) {
   const res = await fetch(url, { method, body });
@@ -52,10 +53,18 @@ let sortBy = { key: "name", dir: 1 };
 let filter = new Set(); // selected tag chips; a page must have all of them
 
 async function refresh() {
-  const data = await api("GET", "/api/pages");
+  const [data, ds] = await Promise.all([api("GET", "/api/pages"), api("GET", "/api/drafts")]);
   domain = data.domain;
   pages = data.pages;
   existing = new Set(pages.map((p) => p.name));
+  drafts = new Set(ds.map((d) => d.name));
+  const fresh = ds.filter((d) => !existing.has(d.name)).map((d) => {
+    const b = Object.assign(document.createElement("button"), { type: "button", textContent: d.name });
+    b.onclick = () => openEditor(d.name, true);
+    return b;
+  });
+  $("drafts").replaceChildren($("drafts").firstElementChild, ...fresh);
+  $("drafts").hidden = fresh.length === 0;
   render();
   updatePreview();
 }
@@ -112,15 +121,20 @@ function render() {
         showError(e);
       }
     };
+    const cell = document.createElement("span");
+    cell.append(link);
+    if (drafts.has(p.name)) cell.append(Object.assign(document.createElement("span"), { className: "badge", textContent: "draft" }));
+    const edit = Object.assign(document.createElement("button"), { type: "button", textContent: "Edit" });
+    edit.onclick = () => openEditor(p.name, false);
     const del = Object.assign(document.createElement("button"), { textContent: "Delete", className: "del" });
     del.onclick = async () => {
       if (!confirm(`Delete ${p.name}? This cannot be undone.`)) return;
       await api("DELETE", `/api/pages/${p.name}`).catch(showError);
       refresh();
     };
-    for (const c of [link, tags, size(p.bytes), new Date(p.updated).toLocaleString(), del]) {
+    for (const c of [[cell], [tags], [size(p.bytes)], [new Date(p.updated).toLocaleString()], [edit, " ", del]]) {
       const td = document.createElement("td");
-      td.append(c);
+      td.append(...c);
       tr.append(td);
     }
     return tr;

@@ -7,6 +7,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
+  <script src="editor.js" defer></script>
 </head>
 <body>
   <header>
@@ -45,7 +46,11 @@
     </form>
 
     <section id="list">
-      <h2>Your pages</h2>
+      <div class="list-head">
+        <h2>Your pages</h2>
+        <button type="button" id="new-page">New page</button>
+      </div>
+      <p id="drafts" hidden><span>Unpublished drafts:</span></p>
       <div id="tag-filter" role="group" aria-label="Filter by tag" hidden>
         <span>Filter</span>
         <div id="tag-chips"></div>
@@ -74,5 +79,27 @@
       <ul id="token-list"></ul>
     </details>
   </main>
+
+  <dialog id="editor" aria-labelledby="ed-title">
+    <div class="ed-bar">
+      <h2 id="ed-title"></h2>
+      <label class="field" id="ed-name-field" for="ed-name">Page name
+        <input id="ed-name" pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" placeholder="my-page" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </label>
+      <p id="ed-state" role="status"></p>
+      <div class="ed-actions">
+        <button type="button" id="ed-favicon">Favicon from image…</button>
+        <input id="ed-favicon-file" type="file" accept="image/png,image/svg+xml,image/x-icon,image/gif,image/webp,image/jpeg" hidden>
+        <input id="ed-emoji" aria-label="Favicon from emoji" placeholder="or emoji" maxlength="8" size="6" autocomplete="off">
+        <button type="button" id="ed-discard" class="del">Discard draft</button>
+        <button type="button" id="ed-close">Close</button>
+        <button type="button" id="ed-publish" class="primary">Publish</button>
+      </div>
+    </div>
+    <div class="ed-panes">
+      <div id="ed-code"><textarea id="ed-src" aria-label="Page HTML" spellcheck="false" autocapitalize="none"></textarea></div>
+      <iframe id="ed-preview" title="Preview" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+    </div>
+  </dialog>
 </body>
 </html>

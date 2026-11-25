@@ -26,6 +26,14 @@ already use plus a few starters.
 
 ![Editing the tags of one page](docs/screenshots/tags-edit.png)
 
+**Edit and create pages.** **Edit** on a page row opens its `index.html` in a code editor with HTML highlighting, next
+to a live preview. **New page** starts from a small template. Every change is saved as a draft on the server a moment
+after you stop typing; the live page changes only when you press **Publish**, so you can close the editor and continue
+later (the row shows a "draft" badge, and drafts of new pages are listed above the table). **Discard draft** throws your
+changes away. **Favicon from image…** or an emoji embeds a favicon into the page as a `data:` URL, replacing any it had,
+and leaves the rest of the HTML byte for byte as it was. If the page was republished after you opened it, Publish asks
+before overwriting that newer version. The preview runs the page's own scripts in a sandbox that cannot reach the admin.
+
 **API tokens.** Open **API tokens** to create a token for scripts or an AI agent. A token can publish, list, tag and
 delete your pages, but cannot create more tokens. It is shown once; revoke it here if it leaks.
 
@@ -35,9 +43,12 @@ delete your pages, but cannot create more tokens. It is shown once; revoke it he
 T=...  # the token
 ADMIN=https://admin.sites.example.com
 curl -H "Authorization: Bearer $T" -F name=hello -F path=index.html -F file=@index.html $ADMIN/api/pages  # publish
-curl -H "Authorization: Bearer $T" $ADMIN/api/pages                                                     # list
-curl -H "Authorization: Bearer $T" -X PUT -d '["notes","go"]' $ADMIN/api/pages/hello/tags               # tag
-curl -H "Authorization: Bearer $T" -X DELETE $ADMIN/api/pages/hello                                     # delete
+curl -H "Authorization: Bearer $T" $ADMIN/api/pages                                                       # list
+curl -H "Authorization: Bearer $T" -X PUT -d '["notes","go"]' $ADMIN/api/pages/hello/tags                 # tag
+curl -H "Authorization: Bearer $T" -X DELETE $ADMIN/api/pages/hello                                       # delete
+curl -H "Authorization: Bearer $T" $ADMIN/api/pages/hello/source                                          # get index.html
+curl -H "Authorization: Bearer $T" -X PUT -d '{"html":"<h1>v2</h1>"}' $ADMIN/api/drafts/hello             # save a draft
+curl -H "Authorization: Bearer $T" -X POST $ADMIN/api/drafts/hello/publish                                # publish it
 ```
 
 For a folder, send one `path` field and one `file` part per file, in the same order (`path` keeps the folder layout).
@@ -190,7 +201,9 @@ make e2e      # the whole deploy/ stack on local Docker, with certificates from 
 Encrypt's test server, with a fake DNS server that sends every name to Caddy. It then checks over real HTTPS: a
 published page gets a certificate and is served, an unpublished name gets none, the admin and the 404 page work, and
 HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is the closest local test; `KEEP=1` leaves
-the stack running. `docs/screenshots/take.py` retakes the screenshots above.
+the stack running. `docs/screenshots/take.py` retakes the screenshots above, and `scripts/editor_check.py` checks the
+page editor in Chrome (its docstring has the command). `make vendor-editor` rebuilds the bundled CodeMirror from
+`tools/codemirror/`.
 
 To test the self-hosting steps for real (DNS, Let's Encrypt, OAuth), `deploy/e2e/gcp/main.tf` creates a throwaway Google
 Compute Engine VM with Docker: `make tf-plan-apply GCP_PROJECT=<id>` shows the plan, asks, and prints the ssh target;
@@ -198,13 +211,13 @@ Compute Engine VM with Docker: `make tf-plan-apply GCP_PROJECT=<id>` shows the p
 does the whole test in one go (VM, DuckDNS, deploy, checks, your GitHub login, destroy); it first lists anything it
 needs and is missing.
 
-| Path          | Purpose                                                                  |
-| ------------- | ------------------------------------------------------------------------ |
-| `src/`        | The Go service: `main.go` (config, routes), `auth.go`, `store.go`, ...   |
-| `src/static/` | The admin UI, embedded in the binary                                     |
-| `deploy/`     | `Dockerfile`, `compose.yaml`, `Caddyfile`, the 404 page, `.env.example`  |
-| `scripts/`    | `ssh_deploy.py`, `dns_check.py`, `e2e.py` and tests (Python stdlib only) |
-| `docs/`       | Notes on running it as a public service; the README screenshots          |
+| Path          | Purpose                                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/`        | The Go service: `main.go` (config, routes), `auth.go`, `store.go`, ...                               |
+| `src/static/` | The admin UI, embedded in the binary                                                                 |
+| `deploy/`     | `Dockerfile`, `compose.yaml`, `Caddyfile`, the 404 page, `.env.example`                              |
+| `scripts/`    | `ssh_deploy.py`, `dns_check.py`, `e2e.py`, `editor_check.py` (browser check of the editor) and tests |
+| `docs/`       | Notes on running it as a public service; the README screenshots                                      |
 
 ## License
 

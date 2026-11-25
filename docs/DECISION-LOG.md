@@ -69,6 +69,27 @@
 - Helper scripts are Python with only the standard library, not shell: testable with `unittest`, no packages to install,
   and the same on macOS and Linux (BSD and GNU tools differ).
 
+## 2026-11-24: Page editor: source editor with live preview, server-side drafts
+
+- The editor edits the HTML source (CodeMirror 6) next to a live preview, not a WYSIWYG or page-builder library. Pages
+  are mostly single AI-generated files with inline `<style>` and `<script>`; rich-text editors and builders (TipTap,
+  Quill, CKEditor, GrapesJS) parse them into their own model and drop or rewrite those parts. A source editor keeps the
+  page byte for byte. Neocities (Ace) and GitHub's web editor work the same way. Owner's choice from
+  `docs/plans/wysiwyg-editor.md`.
+- Edits are saved as per-owner drafts (`drafts/<owner hash>/<name>.json`) and go live only on Publish, so a half-done
+  edit never reaches the live page (owner's request). Publish refuses with 412 when the page changed after the draft was
+  started, so an upload made meanwhile (for example with an API token) is not overwritten silently.
+- The preview is `/preview`, served with `Content-Security-Policy: sandbox allow-scripts ...` and no
+  `allow-same-origin`: the page runs its own scripts with an opaque origin, so it has no admin cookies and its writes
+  carry `Origin: null`, which the admin refuses. A `srcdoc` iframe would inherit the admin's CSP and block the page's
+  inline styles and scripts.
+- CodeMirror is vendored as one esbuild bundle (`src/static/vendor/codemirror.js`, `make vendor-editor`), because the
+  admin's CSP (`default-src 'self'`) allows no CDN. It is mounted in a shadow root: there it styles itself with
+  constructable stylesheets, while on the document it would add `<style>` tags that the CSP blocks (measured in Chrome,
+  `scripts/editor_check.py`).
+- Favicons are set by the server with the `golang.org/x/net/html` tokenizer and byte offsets, so the rest of the page is
+  untouched; only `data:image/...` URLs under 64 KB are accepted.
+
 ## 2026-11-25: Real-world test on a throwaway GCP VM
 
 - `deploy/e2e/gcp/main.tf` creates a plain Debian VM with Docker (`make tf-plan-apply`, `make tf-destroy`) to test what
