@@ -217,6 +217,7 @@ def main() -> None:
         )
         code, status, _ = curl(f"https://nope-{secrets.token_hex(3)}.{domain}/")
         expect("unpublished name gets no certificate", code in (35, 60), (code, status))
+        wait("the bare domain's 404 page", lambda: curl(f"https://{domain}/")[1].startswith("404"), 180)
         code, status, body = curl(f"https://{domain}/")
         expect("bare domain shows the 404 page", status.startswith("404"), status)
 
@@ -236,6 +237,7 @@ def main() -> None:
 
         if ssh_deploy.main([host]):
             sys.exit("redeploy failed")
+        wait("the page after the redeploy", lambda: curl(page)[1].startswith("200"), 180)
         code, status, _ = curl(page)
         expect(
             "page survives a redeploy",
