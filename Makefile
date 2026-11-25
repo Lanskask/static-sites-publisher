@@ -1,13 +1,16 @@
 .DEFAULT_GOAL := help
-.PHONY: help run test build deploy dns-check e2e vendor-editor
+.PHONY: help run test build deploy dns-check e2e vendor-editor tf-plan tf-apply tf-plan-apply tf-destroy gcp-e2e
 
 # arm64 for ARM servers (Oracle Ampere, AWS Graviton, Raspberry Pi)
 GOARCH ?= amd64
 # ssh target for deploy, e.g. root@203.0.113.7
 HOST ?=
+# GCP project for the throwaway test VM in deploy/e2e/gcp
+GCP_PROJECT ?=
+TF = terraform -chdir=deploy/e2e/gcp
 
 help: ## list the commands
-	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
 
 run: ## run the admin locally at http://localhost:8080 with a fake login (dev:me)
 	cd src && DEV_IDENTITY=dev:me ALLOWLIST=dev:me SITES_DIR=../data go run .
@@ -31,3 +34,23 @@ e2e: ## run deploy/ on local Docker with certificates from Pebble (Let's Encrypt
 vendor-editor: ## rebuild src/static/vendor/codemirror.js from tools/codemirror (needs Node; only when upgrading CodeMirror)
 	cd tools/codemirror && npm ci && npx esbuild entry.js --bundle --format=esm --minify --legal-comments=eof \
 		--outfile=../../src/static/vendor/codemirror.js
+
+deploy/e2e/gcp/.terraform:
+	$(TF) init
+
+tf-plan: deploy/e2e/gcp/.terraform ## show what the GCP test VM would create (GCP_PROJECT=...); saves the plan
+	@test -n "$(GCP_PROJECT)" || { echo "set GCP_PROJECT=<your project id>"; exit 1; }
+	$(TF) plan -var project=$(GCP_PROJECT) -out=tfplan
+
+tf-apply: ## create the GCP test VM from the plan tf-plan saved
+	@test -f deploy/e2e/gcp/tfplan || { echo "no saved plan: run make tf-plan first"; exit 1; }
+	$(TF) apply tfplan && rm deploy/e2e/gcp/tfplan
+
+tf-plan-apply: tf-plan tf-apply ## tf-plan then tf-apply
+
+tf-destroy: deploy/e2e/gcp/.terraform ## delete the GCP test VM, network and firewall (asks first)
+	@test -n "$(GCP_PROJECT)" || { echo "set GCP_PROJECT=<your project id>"; exit 1; }
+	$(TF) destroy -var project=$(GCP_PROJECT)
+
+gcp-e2e: ## full real test on a throwaway GCP VM: create, deploy, check, destroy (KEEP=1 leaves it); lists what it needs
+	python3 scripts/gcp_e2e.py $(if $(KEEP),--keep)

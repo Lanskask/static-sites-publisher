@@ -1,4 +1,4 @@
-# static-sites-publish
+# site-publisher
 
 Drag a folder, a `.zip` or a single `.html` file into a web page and it is live at `https://<name>.<your domain>` a
 second later. One small Go binary, no database: pages and metadata are plain files. You host it yourself on any Linux
@@ -69,7 +69,7 @@ What you need:
 - Docker with the compose plugin on the server: <https://docs.docker.com/engine/install/>. The ssh user must be able to
   run `docker` (root, or a member of the `docker` group).
 - A domain whose DNS you can edit, at any provider (next section), or a free DuckDNS name.
-- On your own machine: `ssh`, `rsync` and Python 3.11 or newer.
+- On your own machine: `ssh`, `tar` and Python 3.11 or newer.
 
 The stack in `deploy/` is two containers: the admin, and [Caddy](https://caddyserver.com) serving the pages and getting
 HTTPS certificates from Let's Encrypt. Pages and certificates live in Docker volumes, so redeploying keeps them.
@@ -132,7 +132,7 @@ $EDITOR deploy/.env                  # PAGES_DOMAIN, ADMIN_HOST, ACME_EMAIL, ALL
 make deploy HOST=root@203.0.113.7    # or any Host alias from ~/.ssh/config
 ```
 
-`scripts/ssh_deploy.py` copies `src/` and `deploy/` to `~/static-sites-publish` on the server and runs
+`scripts/ssh_deploy.py` copies `src/` and `deploy/` to `~/site-publisher` on the server and runs
 `docker compose up -d --build` there. The image is built on the server, so its CPU type does not matter. Run the same
 command to update. Then open `https://admin.sites.example.com`, log in and publish a page. The first visit to a page
 takes a second or two longer while Caddy gets its certificate.
@@ -140,8 +140,8 @@ takes a second or two longer while Caddy gets its certificate.
 Without the script, on the server itself:
 
 ```bash
-git clone https://github.com/Lanskask/static-sites-publisher.git static-sites-publish
-cd static-sites-publish/deploy && cp .env.example .env && $EDITOR .env
+git clone https://github.com/Lanskask/static-sites-publisher.git site-publisher
+cd site-publisher/deploy && cp .env.example .env && $EDITOR .env
 docker compose up -d --build
 ```
 
@@ -161,8 +161,8 @@ Notes:
   wildcard certificate with a DNS-provider plugin (<https://caddyserver.com/docs/automatic-https#dns-challenge>).
 - A page name that is not published gets no certificate, so its URL shows a browser TLS error instead of the "no page"
   screen. This stops strangers from making the server request certificates for random names.
-- Before you let other people upload, read `docs/PUBLIC-SERVICE-nex-sites.md`: phishing and malware on your domain are
-  the real risks.
+- Before you let other people upload, read `docs/PUBLIC-SERVICE.md`: phishing and malware on your domain are the real
+  risks.
 
 ### Without Docker
 
@@ -206,6 +206,12 @@ HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is
 the stack running. `docs/screenshots/take.py` retakes the screenshots above, and `scripts/editor_check.py` checks the
 page editor in Chrome (its docstring has the command). `make vendor-editor` rebuilds the bundled CodeMirror from
 `tools/codemirror/`.
+
+To test the self-hosting steps for real (DNS, Let's Encrypt, OAuth), `deploy/e2e/gcp/main.tf` creates a throwaway Google
+Compute Engine VM with Docker: `make tf-plan-apply GCP_PROJECT=<id>` shows the plan, asks, and prints the ssh target;
+`make tf-destroy GCP_PROJECT=<id>` deletes it. It needs `gcloud auth application-default login` once. `make gcp-e2e`
+does the whole test in one go (VM, DuckDNS, deploy, checks, your GitHub login, destroy); it first lists anything it
+needs and is missing.
 
 | Path          | Purpose                                                                                              |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
