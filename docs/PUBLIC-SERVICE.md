@@ -1,4 +1,4 @@
-# site-publisher as a stand-alone public service
+# static-sites-publisher as a stand-alone public service
 
 How the drag-and-drop publisher (`src/` plus a static file server) could run as its own public product, and what
 protects its reputation. Facts about outside rules (Let's Encrypt limits, Public Suffix List, Safe Browsing) were

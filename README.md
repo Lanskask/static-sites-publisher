@@ -1,4 +1,4 @@
-# site-publisher
+# static-sites-publisher
 
 Drag a folder, a `.zip` or a single `.html` file into a web page and it is live at `https://<name>.<your domain>` a
 second later. One small Go binary, no database: pages and metadata are plain files. You host it yourself on any Linux
@@ -136,7 +136,7 @@ $EDITOR deploy/.env                  # PAGES_DOMAIN, ADMIN_HOST, ACME_EMAIL, ALL
 make deploy HOST=root@203.0.113.7    # or any Host alias from ~/.ssh/config
 ```
 
-`scripts/ssh_deploy.py` copies `src/` and `deploy/` to `~/site-publisher` on the server and runs
+`scripts/ssh_deploy.py` copies `src/` and `deploy/` to `~/static-sites-publisher` on the server and runs
 `docker compose up -d --build` there. The image is built on the server, so its CPU type does not matter. Run the same
 command to update. Then open `https://admin.sites.example.com`, log in and publish a page. The first visit to a page
 takes a second or two longer while Caddy gets its certificate.
@@ -144,8 +144,8 @@ takes a second or two longer while Caddy gets its certificate.
 Without the script, on the server itself:
 
 ```bash
-git clone https://github.com/Lanskask/static-sites-publisher.git site-publisher
-cd site-publisher/deploy && cp .env.example .env && $EDITOR .env
+git clone https://github.com/Lanskask/static-sites-publisher.git static-sites-publisher
+cd static-sites-publisher/deploy && cp .env.example .env && $EDITOR .env
 docker compose up -d --build
 ```
 

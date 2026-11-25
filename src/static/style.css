@@ -1,4 +1,4 @@
-/* Admin for site-publisher. Operate surface: quiet paper-and-ink, one green accent, nothing decorative. */
+/* Admin for static-sites-publisher. Operate surface: quiet paper-and-ink, one green accent, nothing decorative. */
 :root {
   color-scheme: light dark;
   --bg: oklch(0.975 0.006 95);

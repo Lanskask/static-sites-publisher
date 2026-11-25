@@ -114,3 +114,10 @@
 - Each edit posts `outerHTML` back into the source buffer instead of saving: `outerHTML` reformats the markup (quotes,
   whitespace), so the owner sees the change in the source before Publish. Byte-exact output is not possible in this
   mode; the source editor stays the lossless path.
+
+## 2026-11-25: Project name is `static-sites-publisher`
+
+- The project is named after its GitHub repository (owner's choice), so the README, the admin header and the default
+  server directory (`~/static-sites-publisher`) all match the clone URL. The earlier name `site-publisher` is gone.
+- Existing servers deployed with `make deploy` get a new directory on the next deploy; the Docker volumes are kept,
+  because the compose project is named after `deploy/` in both. The old `~/site-publisher` directory can be deleted.
