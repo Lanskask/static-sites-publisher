@@ -73,6 +73,23 @@ class GcpE2eTest(unittest.TestCase):
         return d / ".env"
 
 
+class GcpE2eWaitTest(unittest.TestCase):
+    def test_wait_returns_how_many_retries_it_needed(self):
+        answers = iter([False, False, True])
+        slept: list[int] = []
+        n = gcp_e2e.wait("x", lambda: next(answers), 60, sleep=slept.append)
+        self.assertEqual((n, slept), (2, [10, 10]))
+
+    def test_wait_times_out(self):
+        with self.assertRaises(SystemExit):
+            gcp_e2e.wait("x", lambda: False, -1, sleep=lambda s: None)
+
+    def test_forget_host_removes_the_ip_from_known_hosts(self):
+        calls: list[list[str]] = []
+        gcp_e2e.forget_host("1.2.3.4", run=lambda cmd, **kw: calls.append(cmd))
+        self.assertEqual(calls, [["ssh-keygen", "-R", "1.2.3.4"]])
+
+
 class DnsCheckTest(unittest.TestCase):
     def test_read_env_skips_comments_and_quotes(self):
         with tempfile.TemporaryDirectory() as d:
