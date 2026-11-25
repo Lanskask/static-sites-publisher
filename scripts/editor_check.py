@@ -135,6 +135,39 @@ with sync_playwright() as p:
         and src.replace(re.search(r'<link rel="icon"[^>]*>', src)[0], "")
         == PAGE.replace("v1", "v2") + "\n<!-- typed -->",
     )
+    # visual text editing: only for pages without scripts, and the frame stays sandboxed
+    check(
+        "visual edit is off for a page with scripts",
+        pg.locator("#ed-visual").is_disabled(),
+    )
+    before = pg.evaluate("source.get()")
+    SIMPLE = "<!doctype html><html><head><title>t</title><style>h1{color:rgb(1, 2, 3)}</style></head><body><h1>v3</h1></body></html>"
+    set_source(pg, SIMPLE)
+    expect(pg.locator("#ed-visual")).to_be_enabled()
+    pg.click("#ed-visual")
+    h1 = pg.frame_locator("#ed-preview").locator("h1")
+    h1.click()
+    pg.keyboard.press("End")
+    pg.keyboard.type(" edited")
+    src = wait_source(pg, "v3 edited")
+    check(
+        "visual edit lands in the source with doctype, head and style intact",
+        src.lower().startswith("<!doctype html>")
+        and "<title>t</title>" in src
+        and "h1{color:rgb(1, 2, 3)}" in src
+        and "<base" not in src,
+        src,
+    )
+    leak = h1.evaluate(
+        "() => { try { parent.document.title; return 'leak' } catch { return 'blocked' } }"
+    )
+    check("visual frame cannot read the admin", leak == "blocked", leak)
+    pg.click(
+        "#ed-visual"
+    )  # back to the preview, and put the earlier draft back for the checks below
+    set_source(pg, before)
+    wait_source(pg, "<!-- typed -->")
+
     pg.click("#ed-close")
     expect(pg.locator("tr:has-text('demo') .badge")).to_have_count(1)
     check("closing keeps the draft (row shows a badge)", True)

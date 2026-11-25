@@ -62,7 +62,7 @@ let saveTimer = 0;
 let saving = Promise.resolve();
 
 async function openEditor(name, isNew) {
-  ed = { name, base: null, isNew, saved: true };
+  ed = { name, base: null, isNew, saved: true, visual: false };
   let html = TEMPLATE;
   try {
     if (!name) throw Object.assign(new Error("new page"), { status: 404 });
@@ -100,13 +100,19 @@ function setState(text, error) {
 
 function updateButtons() {
   $("ed-discard").disabled = !drafts.has(ed.name);
+  // Visual editing needs a page without scripts: the editable copy runs none, so a script page would look broken.
+  const scripty = /<script[\s>]/i.test(source.get());
+  $("ed-visual").disabled = scripty && !ed.visual;
+  $("ed-visual").title = scripty ? "This page has scripts; edit its source instead." : "";
+  $("ed-visual").textContent = ed.visual ? "Preview" : "Edit text visually";
 }
 
 // Called on every edit: refresh the preview and save the draft once typing stops.
-function changed() {
+// A visual edit already shows on screen, and reloading the frame would drop the caret, so it skips the refresh.
+function changed(fromVisual) {
   ed.saved = false;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { showPreview(); saveDraft(); }, 600);
+  saveTimer = setTimeout(() => { if (!fromVisual) showPreview(); updateButtons(); saveDraft(); }, 600);
 }
 
 function saveDraft() {
@@ -144,15 +150,20 @@ function saveDraft() {
 
 // The preview runs in /preview, an opaque-origin sandbox; it asks for the HTML once it has loaded.
 function showPreview() {
-  $("ed-preview").src = `/preview?${Date.now()}`;
+  $("ed-preview").src = `/preview?${ed.visual ? "mode=edit&" : ""}${Date.now()}`;
 }
 
 addEventListener("message", (e) => {
-  if (!ed || e.source !== $("ed-preview").contentWindow || e.data !== "preview-ready") return;
+  if (!ed || e.source !== $("ed-preview").contentWindow) return;
+  if (typeof e.data?.visual === "string") {
+    source.set(e.data.visual);
+    return changed(true);
+  }
+  if (e.data !== "preview-ready") return;
   let html = source.get();
   if (!ed.isNew) {
     // relative links (images, css) of an existing page load from its live address; only the preview copy gets this
-    const base = `<base href="https://${ed.name}.${domain}/">`;
+    const base = `<base data-ed href="https://${ed.name}.${domain}/">`;
     const head = html.match(/<head[^>]*>/i);
     html = head ? html.replace(head[0], head[0] + base) : base + html;
   }
@@ -160,6 +171,11 @@ addEventListener("message", (e) => {
 });
 
 $("ed-name").addEventListener("change", () => saveDraft());
+$("ed-visual").addEventListener("click", () => {
+  ed.visual = !ed.visual;
+  updateButtons();
+  showPreview();
+});
 
 $("ed-publish").addEventListener("click", async () => {
   await saveDraft();

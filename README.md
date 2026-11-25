@@ -33,6 +33,8 @@ later (the row shows a "draft" badge, and drafts of new pages are listed above t
 changes away. **Favicon from image…** or an emoji embeds a favicon into the page as a `data:` URL, replacing any it had,
 and leaves the rest of the HTML byte for byte as it was. If the page was republished after you opened it, Publish asks
 before overwriting that newer version. The preview runs the page's own scripts in a sandbox that cannot reach the admin.
+**Edit text visually** lets you click into the page and type; it appears only for pages without scripts, and the result
+lands in the source so you can review it before you publish (the markup may be reformatted).
 
 **API tokens.** Open **API tokens** to create a token for scripts or an AI agent. A token can publish, list, tag and
 delete your pages, but cannot create more tokens. It is shown once; revoke it here if it leaks.
