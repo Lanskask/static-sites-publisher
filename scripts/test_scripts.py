@@ -51,6 +51,22 @@ class GcpE2eTest(unittest.TestCase):
         self.assertEqual(vals["ADMIN_HOST"], "admin.t.duckdns.org")
         self.assertEqual(len(vals["SESSION_KEY"]), 64)
 
+    def test_duckdns_url_sets_or_clears(self):
+        self.assertEqual(
+            gcp_e2e.duckdns_url("t", "tok", "1.2.3.4"),
+            "https://www.duckdns.org/update?domains=t&token=tok&ip=1.2.3.4",
+        )
+        self.assertTrue(gcp_e2e.duckdns_url("t", "tok").endswith("&clear=true"))
+
+    def test_seed_writes_page_and_meta_as_the_admin_user(self):
+        cmd = gcp_e2e.seed_page_cmd("keep", "github:1")
+        self.assertIn("/s/pages/keep/index.html", cmd)
+        self.assertIn("/s/meta/keep.json", cmd)
+        self.assertIn('"owner": "github:1"', cmd)
+        self.assertIn(
+            "chown -R 65532:65532", cmd
+        )  # distroless nonroot, so the admin can delete it
+
     def _write(self, text: str) -> Path:
         d = Path(tempfile.mkdtemp())
         (d / ".env").write_text(text)

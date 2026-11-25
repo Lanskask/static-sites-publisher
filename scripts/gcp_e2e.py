@@ -9,13 +9,16 @@ Needs these environment variables (it lists every missing one, and every missing
   GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET       a GitHub OAuth or GitHub App whose callback URL is
                                                https://admin.DUCKDNS_NAME.duckdns.org/auth/github/callback
   ALLOWLIST                                    who may log in, e.g. github:12345678 (`gh api user --jq .id`)
+Also checks that a page survives a redeploy and a reboot. At the end it clears the DuckDNS address.
 It writes deploy/.env for the test and deletes it afterwards (kept with --keep); it refuses to overwrite a deploy/.env it did not write.
 The login step waits for you in the browser; without a terminal it is skipped.
 """
 
 import argparse
+import json
 import os
 import secrets
+import shlex
 import shutil
 import subprocess
 import sys
@@ -74,6 +77,35 @@ def env_file(e: dict[str, str]) -> str:
     )
 
 
+def duckdns_url(name: str, token: str, ip: str = "") -> str:
+    """The DuckDNS update URL: point name at ip, or clear its address when ip is empty."""
+    q = f"domains={name}&token={token}&" + (f"ip={ip}" if ip else "clear=true")
+    return f"https://www.duckdns.org/update?{q}"
+
+
+def seed_page_cmd(name: str, owner: str) -> str:
+    """Shell command for the VM that publishes a page straight into the sites volume, as an upload would leave it."""
+    meta = json.dumps(
+        {
+            "name": name,
+            "owner": owner,
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-01T00:00:00Z",
+            "bytes": 15,
+        }
+    )
+    script = (
+        f"mkdir -p /s/pages/{name} /s/meta && echo '<h1>e2e</h1>' > /s/pages/{name}/index.html"
+        f" && echo {shlex.quote(meta)} > /s/meta/{name}.json"
+        f" && chown -R 65532:65532 /s/pages/{name} /s/meta/{name}.json"
+    )
+    # the Caddy image is already on the VM; the sites volume is found by its compose label
+    return (
+        'docker run --rm -v "$(docker volume ls -q -f label=com.docker.compose.volume=sites)":/s'
+        f" caddy:2.10-alpine sh -c {shlex.quote(script)}"
+    )
+
+
 def tf(*args: str, **kw) -> subprocess.CompletedProcess:
     cmd = ["terraform", f"-chdir={TF_DIR}", *args]
     print("+", " ".join(cmd))
@@ -123,8 +155,9 @@ def main() -> None:
         ip = tf("output", "-raw", "ip", capture_output=True).stdout.strip()
         host = tf("output", "-raw", "ssh", capture_output=True).stdout.strip()
 
-        q = f"domains={e['DUCKDNS_NAME']}&ip={ip}&token={e['DUCKDNS_TOKEN']}"
-        with urllib.request.urlopen(f"https://www.duckdns.org/update?{q}") as r:
+        with urllib.request.urlopen(
+            duckdns_url(e["DUCKDNS_NAME"], e["DUCKDNS_TOKEN"], ip)
+        ) as r:
             expect("DuckDNS accepted the new IP", r.read() == b"OK")
         wait(
             f"{domain} and *.{domain} to resolve to {ip}",
@@ -184,8 +217,47 @@ def main() -> None:
         )
         code, status, _ = curl(f"https://nope-{secrets.token_hex(3)}.{domain}/")
         expect("unpublished name gets no certificate", code in (35, 60), (code, status))
+        wait("the bare domain's 404 page", lambda: curl(f"https://{domain}/")[1].startswith("404"), 180)
         code, status, body = curl(f"https://{domain}/")
         expect("bare domain shows the 404 page", status.startswith("404"), status)
+
+        page = f"https://e2e-keep.{domain}/"
+        r = subprocess.run(
+            [*ssh, host, seed_page_cmd("e2e-keep", e["ALLOWLIST"].split(",")[0])],
+            check=False,
+        )
+        expect("page planted in the sites volume", r.returncode == 0, r.returncode)
+        wait("the page's certificate", lambda: curl(page)[0] == 0, 180)
+        code, status, _ = curl(page)
+        expect(
+            "published page is served with its own certificate",
+            code == 0 and status.startswith("200"),
+            (code, status),
+        )
+
+        if ssh_deploy.main([host]):
+            sys.exit("redeploy failed")
+        wait("the page after the redeploy", lambda: curl(page)[1].startswith("200"), 180)
+        code, status, _ = curl(page)
+        expect(
+            "page survives a redeploy",
+            code == 0 and status.startswith("200"),
+            (code, status),
+        )
+
+        subprocess.run([*ssh, host, "sudo reboot"], check=False, capture_output=True)
+        time.sleep(20)
+        wait(
+            "the VM and the stack to come back after a reboot",
+            lambda: curl(f"https://{admin}/")[1].startswith("200"),
+            300,
+        )
+        code, status, _ = curl(page)
+        expect(
+            "page survives a reboot",
+            code == 0 and status.startswith("200"),
+            (code, status),
+        )
 
         if sys.stdin.isatty():
             input(
@@ -209,6 +281,15 @@ def main() -> None:
             if ENV.exists() and ENV.read_text().startswith(MARK):
                 ENV.unlink()
             tf("destroy", "-auto-approve", "-input=false", "-var", project)
+            # the released IP can go to a stranger; leave the name pointing nowhere
+            with urllib.request.urlopen(
+                duckdns_url(e["DUCKDNS_NAME"], e["DUCKDNS_TOKEN"])
+            ) as r:
+                print(
+                    "DuckDNS address cleared"
+                    if r.read() == b"OK"
+                    else "WARN DuckDNS clear failed"
+                )
     sys.exit(f"{len(failures)} check(s) failed" if failures else 0)
 
 
