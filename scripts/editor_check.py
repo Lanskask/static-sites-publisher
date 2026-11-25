@@ -62,25 +62,38 @@ def preview_text(pg: Page, selector: str) -> str:
 
 with sync_playwright() as p:
     b = p.chromium.launch(channel="chrome")
-    ctx = b.new_context(extra_http_headers={"Origin": URL}, permissions=["clipboard-read", "clipboard-write"])
+    ctx = b.new_context(
+        extra_http_headers={"Origin": URL},
+        permissions=["clipboard-read", "clipboard-write"],
+    )
     pg = ctx.new_page()
     csp: list[str] = []
     pg.on(
         "console",
-        lambda m: csp.append(f"{m.text} at {m.location}") if "Content Security Policy" in m.text else None,
+        lambda m: (
+            csp.append(f"{m.text} at {m.location}")
+            if "Content Security Policy" in m.text
+            else None
+        ),
     )
     pg.goto(URL)
     file = {"name": "index.html", "mimeType": "text/html", "buffer": PAGE.encode()}
     r = pg.request.post(
-        f"{URL}/api/pages", multipart={"name": "demo", "path": "index.html", "file": file}
+        f"{URL}/api/pages",
+        multipart={"name": "demo", "path": "index.html", "file": file},
     )
     assert r.ok, r.text()
-    pg.request.delete(f"{URL}/api/drafts/demo")  # a draft left by an earlier run would be opened instead
+    pg.request.delete(
+        f"{URL}/api/drafts/demo"
+    )  # a draft left by an earlier run would be opened instead
     pg.reload()
 
     # edit an existing page
     pg.click("tr:has-text('demo') >> text=Edit")
-    check("preview runs the page's inline script", preview_text(pg, "#ran") == "script ran")
+    check(
+        "preview runs the page's inline script",
+        preview_text(pg, "#ran") == "script ran",
+    )
     color = (
         pg.frame_locator("#ed-preview")
         .locator("h1")
@@ -97,11 +110,14 @@ with sync_playwright() as p:
     expect(pg.locator(".cm-editor")).to_be_visible()
     check(
         "CodeMirror replaced the textarea and highlights HTML",
-        not pg.locator("#ed-src").is_visible() and pg.locator(".cm-content span[class]").count() > 5,
+        not pg.locator("#ed-src").is_visible()
+        and pg.locator(".cm-content span[class]").count() > 5,
     )
     set_source(pg, PAGE.replace("v1", "v2"))
     pg.keyboard.press("ControlOrMeta+End")
-    pg.keyboard.type("\n<!-- typed -->")  # real keystrokes too, for the CSP check at the end
+    pg.keyboard.type(
+        "\n<!-- typed -->"
+    )  # real keystrokes too, for the CSP check at the end
     wait_source(pg, "<!-- typed -->")
     expect(pg.locator("#ed-state")).to_have_text(re.compile("^Draft saved"))
     live = pg.request.get(f"{URL}/api/pages/demo/source").text()
@@ -115,7 +131,9 @@ with sync_playwright() as p:
         print(repr(src))
     check(
         "emoji favicon is inserted once, rest unchanged",
-        src.count('rel="icon"') == 1 and src.replace(re.search(r'<link rel="icon"[^>]*>', src)[0], "") == PAGE.replace("v1", "v2") + "\n<!-- typed -->",
+        src.count('rel="icon"') == 1
+        and src.replace(re.search(r'<link rel="icon"[^>]*>', src)[0], "")
+        == PAGE.replace("v1", "v2") + "\n<!-- typed -->",
     )
     pg.click("#ed-close")
     expect(pg.locator("tr:has-text('demo') .badge")).to_have_count(1)
@@ -127,7 +145,10 @@ with sync_playwright() as p:
     pg.click("#ed-publish")
     pg.wait_for_selector("#status.ok")
     live = pg.request.get(f"{URL}/api/pages/demo/source").text()
-    check("publish makes the draft live, favicon included", ">v2<" in live and 'rel="icon"' in live)
+    check(
+        "publish makes the draft live, favicon included",
+        ">v2<" in live and 'rel="icon"' in live,
+    )
 
     # a new page from the template
     # (waits use expect(), not wait_for_function: the admin's CSP forbids the eval that one needs)
@@ -137,7 +158,10 @@ with sync_playwright() as p:
     pg.fill("#ed-name", NEW)
     pg.press("#ed-name", "Tab")
     expect(pg.locator("#ed-state")).to_have_text(re.compile("^Draft saved"))
-    check("unpublished draft is listed", NEW in json.dumps(pg.request.get(f"{URL}/api/drafts").json()))
+    check(
+        "unpublished draft is listed",
+        NEW in json.dumps(pg.request.get(f"{URL}/api/drafts").json()),
+    )
     pg.click("#ed-publish")
     pg.wait_for_selector("#status.ok")
     check("new page is published", pg.request.get(f"{URL}/api/pages/{NEW}/source").ok)
