@@ -1,6 +1,6 @@
 """Deploy to any Linux server you can ssh into, on any cloud: copy src/ and deploy/, then run docker compose there.
 
-Usage: python3 scripts/ssh_deploy.py user@host [--dir static-sites-publish]
+Usage: python3 scripts/ssh_deploy.py user@host [--dir site-publisher]
 
 The server needs Docker with the compose plugin and open ports 80 and 443; the ssh user must be able to run docker.
 Configuration is deploy/.env (copy deploy/.env.example). Pages and certificates live in Docker volumes, so
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--dir",
-        default="static-sites-publish",
+        default="site-publisher",
         help="directory on the server, relative to home",
     )
     args = p.parse_args(argv)
