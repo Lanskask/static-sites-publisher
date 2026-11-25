@@ -148,6 +148,7 @@ func TestTLSCheck(t *testing.T) {
 		"pages.test":        http.StatusNotFound,
 		"a.demo.pages.test": http.StatusNotFound,
 		"admin.pages.test":  http.StatusNotFound, // reserved
+		"localhost":         http.StatusOK,       // the admin's own host (Origin), which *.PAGES_DOMAIN may cover
 		"":                  http.StatusNotFound,
 	} {
 		w := httptest.NewRecorder()

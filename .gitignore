@@ -3,3 +3,5 @@ bin/
 sites-admin
 deploy/.env
 __pycache__/
+deploy/e2e/Caddyfile
+deploy/e2e/pebble.minica.pem

@@ -48,7 +48,9 @@ What you need:
 
 - A Linux server with a public IPv4 address, from any provider: a VPS (Hetzner, DigitalOcean, Linode), a cloud VM (AWS
   EC2 or Lightsail, Google Compute Engine, Azure, Oracle Cloud free tier) or a machine at home with ports forwarded. 1
-  CPU and 512 MB of RAM are enough; `amd64` and `arm64` both work.
+  CPU and 512 MB of RAM are enough; `amd64` and `arm64` both work. A Mac with Docker Desktop, colima or OrbStack also
+  runs the stack (`make e2e` does, below), but a server is the better host: a laptop sleeps, and a home network needs
+  ports 80 and 443 forwarded to it.
 - Ports 80 and 443 open to the internet, in the provider's firewall (security group, VCN security list) and on the
   server itself.
 - Docker with the compose plugin on the server: <https://docs.docker.com/engine/install/>. The ssh user must be able to
@@ -181,12 +183,23 @@ make          # list the commands
 make run      # http://localhost:8080 with a fake login (dev:me), data in ./data
 make test     # go vet, golangci-lint, go test -race, Python script tests
 make build    # static Linux binary in bin/ (GOARCH=amd64 by default)
+make e2e      # the whole deploy/ stack on local Docker, with certificates from Pebble
 ```
 
-| Path          | Purpose                                                                 |
-| ------------- | ----------------------------------------------------------------------- |
-| `src/`        | The Go service: `main.go` (config, routes), `auth.go`, `store.go`, ...  |
-| `src/static/` | The admin UI, embedded in the binary                                    |
-| `deploy/`     | `Dockerfile`, `compose.yaml`, `Caddyfile`, the 404 page, `.env.example` |
-| `scripts/`    | `ssh_deploy.py`, `dns_check.py` and their tests (Python stdlib only)    |
-| `docs/`       | Notes on running it as a public service; the README screenshots         |
+`make e2e` builds the admin image, starts Caddy, and points it at [Pebble](https://github.com/letsencrypt/pebble), Let's
+Encrypt's test server, with a fake DNS server that sends every name to Caddy. It then checks over real HTTPS: a
+published page gets a certificate and is served, an unpublished name gets none, the admin and the 404 page work, and
+HTTP redirects to HTTPS. Real Let's Encrypt cannot reach your laptop, so this is the closest local test; `KEEP=1` leaves
+the stack running. `docs/screenshots/take.py` retakes the screenshots above.
+
+| Path          | Purpose                                                                  |
+| ------------- | ------------------------------------------------------------------------ |
+| `src/`        | The Go service: `main.go` (config, routes), `auth.go`, `store.go`, ...   |
+| `src/static/` | The admin UI, embedded in the binary                                     |
+| `deploy/`     | `Dockerfile`, `compose.yaml`, `Caddyfile`, the 404 page, `.env.example`  |
+| `scripts/`    | `ssh_deploy.py`, `dns_check.py`, `e2e.py` and tests (Python stdlib only) |
+| `docs/`       | Notes on running it as a public service; the README screenshots          |
+
+## License
+
+MIT, see [LICENSE](LICENSE).
