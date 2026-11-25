@@ -1,6 +1,6 @@
 """Deploy to any Linux server you can ssh into, on any cloud: copy src/ and deploy/, then run docker compose there.
 
-Usage: python3 scripts/ssh_deploy.py user@host [--dir static-sites-publish]
+Usage: python3 scripts/ssh_deploy.py user@host [--dir site-publisher]
 
 The server needs Docker with the compose plugin and open ports 80 and 443; the ssh user must be able to run docker.
 Configuration is deploy/.env (copy deploy/.env.example). Pages and certificates live in Docker volumes, so
@@ -8,30 +8,29 @@ redeploying keeps them.
 """
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Streamed into the first command: tar is on every server, rsync is not.
+TAR = ["tar", "-C", str(ROOT), "--exclude", "deploy/e2e", "-czf", "-", "src", "deploy"]
 
 
 def commands(host: str, remote_dir: str) -> list[list[str]]:
     d = shlex.quote(remote_dir)
     return [
-        ["ssh", host, f"mkdir -p {d}"],
         [
-            "rsync",
-            "-az",
-            "--delete",
-            str(ROOT / "src"),
-            str(ROOT / "deploy"),
-            f"{host}:{remote_dir}/",
+            "ssh",
+            host,
+            f"rm -rf {d}/src {d}/deploy && mkdir -p {d} && tar -xzf - -C {d}",
         ],
         [
             "ssh",
             host,
-            f"cd {d}/deploy && chmod 600 .env && docker compose up -d --build --remove-orphans",
+            f"cd {d}/deploy && chmod 600 .env && docker compose up -d --build --remove-orphans --force-recreate",
         ],
     ]
 
@@ -43,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--dir",
-        default="static-sites-publish",
+        default="site-publisher",
         help="directory on the server, relative to home",
     )
     args = p.parse_args(argv)
@@ -53,9 +52,18 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    for cmd in commands(args.host, args.dir):
-        print("+", shlex.join(cmd))
-        subprocess.run(cmd, check=True)
+    copy, up = commands(args.host, args.dir)
+    print("+", shlex.join(TAR), "|", shlex.join(copy))
+    # COPYFILE_DISABLE: macOS tar would add ._* files for extended attributes
+    tar = subprocess.Popen(
+        TAR, stdout=subprocess.PIPE, env={**os.environ, "COPYFILE_DISABLE": "1"}
+    )
+    subprocess.run(copy, stdin=tar.stdout, check=True)
+    tar.stdout.close()
+    if tar.wait():
+        raise SystemExit("tar failed")
+    print("+", shlex.join(up))
+    subprocess.run(up, check=True)
     return 0
 
 
