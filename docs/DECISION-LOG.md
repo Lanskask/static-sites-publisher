@@ -11,3 +11,11 @@
   a TLS error instead of the 404 page for unpublished names. The admin's `GET /tls-check` lets Caddy issue only for
   published pages, so strangers cannot make it request certificates for random names.
 - Deploy and DNS helpers are stdlib Python (`scripts/`), run over ssh, so they need no cloud SDK.
+
+## 2026-11-24: End-to-end test with Pebble; `/tls-check` allows the admin host
+
+- `make e2e` runs the real `deploy/` stack with Pebble, Let's Encrypt's test ACME server, because Let's Encrypt cannot
+  reach a development machine. It uses the same HTTP-01 challenge and on-demand flow as production.
+- Its first run found a bug: with `ADMIN_HOST=admin.PAGES_DOMAIN` (the example default), the admin host also matches the
+  on-demand `*.PAGES_DOMAIN` site, so Caddy asked `/tls-check`, which refused the reserved name `admin`, and the admin
+  never got a certificate. `/tls-check` now also allows the host of `BASE_URL`.

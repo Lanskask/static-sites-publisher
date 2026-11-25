@@ -1,0 +1,41 @@
+# Overrides deploy/compose.yaml for `make e2e`: certificates come from Pebble (Let's Encrypt's test ACME server)
+# instead of Let's Encrypt, and a fake DNS server points every name at Caddy. Run through scripts/e2e.py.
+services:
+  admin:
+    env_file: !reset []
+    environment:
+      PAGES_DOMAIN: sites.test
+      ALLOWLIST: github:1
+      SESSION_KEY: e2e-session-key-not-secret-0123456789
+      GITHUB_CLIENT_ID: e2e
+      GITHUB_CLIENT_SECRET: e2e
+
+  caddy:
+    env_file: !reset []
+    environment:
+      PAGES_DOMAIN: sites.test
+      ADMIN_HOST: admin.sites.test
+      ACME_EMAIL: e2e@example.com
+    ports: !override ["18080:80", "18443:443"]
+    volumes:
+      - ./e2e/Caddyfile:/etc/caddy/Caddyfile:ro # deploy/Caddyfile plus acme_ca lines, written by scripts/e2e.py
+      - ./e2e/pebble.minica.pem:/e2e/pebble.minica.pem:ro
+    networks: { default: { ipv4_address: 10.77.0.10 } }
+    depends_on: [admin, pebble]
+
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:2.7.0
+    command: -config /e2e/pebble-config.json -dnsserver 10.77.0.3:8053
+    environment: { PEBBLE_VA_NOSLEEP: "1" }
+    ports: ["15000:15000"] # management API: the root that signs issued certificates
+    volumes: ["./e2e/pebble-config.json:/e2e/pebble-config.json:ro"]
+    depends_on: [dns]
+
+  dns: # answers every A query with Caddy's address, like a wildcard record would
+    image: ghcr.io/letsencrypt/pebble-challtestsrv:2.7.0
+    command: -defaultIPv4 10.77.0.10 -defaultIPv6 "" -dns01 :8053
+    networks: { default: { ipv4_address: 10.77.0.3 } }
+
+networks:
+  default:
+    ipam: { config: [{ subnet: 10.77.0.0/24 }] }

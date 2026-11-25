@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help run test build deploy dns-check
+.PHONY: help run test build deploy dns-check e2e
 
 # arm64 for ARM servers (Oracle Ampere, AWS Graviton, Raspberry Pi)
 GOARCH ?= amd64
@@ -24,3 +24,6 @@ deploy: ## copy src/ and deploy/ to HOST over ssh and start them with docker com
 
 dns-check: ## check that the domains in deploy/.env resolve to one server
 	python3 scripts/dns_check.py
+
+e2e: ## run deploy/ on local Docker with certificates from Pebble (Let's Encrypt's test server); KEEP=1 leaves it up
+	python3 scripts/e2e.py $(if $(KEEP),--keep)

@@ -11,6 +11,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,13 +92,19 @@ func newMux(store *Store, auth *Auth, pagesDomain string, maxUpload int64) http.
 	mux.HandleFunc("GET /auth/{provider}/callback", auth.Callback)
 	mux.HandleFunc("POST /logout", auth.Logout)
 	// Caddy's on-demand TLS asks here before it gets a certificate for <page>.<PAGES_DOMAIN>: only published pages get one.
+	// The admin's own host is allowed too: when it is admin.<PAGES_DOMAIN>, Caddy treats it as on-demand as well.
+	adminHost := ""
+	if u, err := url.Parse(auth.Origin); err == nil {
+		adminHost = u.Hostname()
+	}
 	mux.HandleFunc("GET /tls-check", func(w http.ResponseWriter, r *http.Request) {
-		name, ok := strings.CutSuffix(r.URL.Query().Get("domain"), "."+pagesDomain)
-		if !ok || ValidName(name) != nil || !store.Exists(name) {
+		domain := r.URL.Query().Get("domain")
+		name, ok := strings.CutSuffix(domain, "."+pagesDomain)
+		if domain != adminHost && (!ok || ValidName(name) != nil || !store.Exists(name)) {
 			http.NotFound(w, r)
 		}
 	})
-	mux.HandleFunc("GET /api/providers",func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /api/providers", func(w http.ResponseWriter, _ *http.Request) {
 		names := []string{}
 		for n := range auth.Providers {
 			names = append(names, n)

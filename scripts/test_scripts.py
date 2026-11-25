@@ -1,10 +1,11 @@
-"""Tests for ssh_deploy.py and dns_check.py (stdlib unittest; run with make test)."""
+"""Tests for ssh_deploy.py, dns_check.py and e2e.py (stdlib unittest; run with make test)."""
 
 import tempfile
 import unittest
 from pathlib import Path
 
 import dns_check
+import e2e
 import ssh_deploy
 
 
@@ -51,6 +52,18 @@ class DnsCheckTest(unittest.TestCase):
             "does not resolve",
             dns_check.check("s.test", "a.s.test", None, lambda n: set())[0],
         )
+
+
+class E2ETest(unittest.TestCase):
+    def test_acme_ca_goes_into_the_real_caddyfile_global_options(self):
+        out = e2e.with_acme_ca((e2e.ROOT / "deploy/Caddyfile").read_text())
+        head = out.split("\n}\n", 1)[0]  # the global options block
+        self.assertIn("acme_ca https://pebble:14000/dir", head)
+        self.assertIn("acme_ca_root /e2e/pebble.minica.pem", head)
+
+    def test_fails_loudly_when_the_anchor_line_moves(self):
+        with self.assertRaises(ValueError):
+            e2e.with_acme_ca("{\n}\n")
 
 
 if __name__ == "__main__":
