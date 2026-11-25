@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help run test build deploy dns-check e2e tf-plan tf-apply tf-plan-apply tf-destroy
+.PHONY: help run test build deploy dns-check e2e tf-plan tf-apply tf-plan-apply tf-destroy gcp-e2e
 
 # arm64 for ARM servers (Oracle Ampere, AWS Graviton, Raspberry Pi)
 GOARCH ?= amd64
@@ -47,3 +47,6 @@ tf-plan-apply: tf-plan tf-apply ## tf-plan then tf-apply
 tf-destroy: deploy/e2e/gcp/.terraform ## delete the GCP test VM, network and firewall (asks first)
 	@test -n "$(GCP_PROJECT)" || { echo "set GCP_PROJECT=<your project id>"; exit 1; }
 	$(TF) destroy -var project=$(GCP_PROJECT)
+
+gcp-e2e: ## full real test on a throwaway GCP VM: create, deploy, check, destroy (KEEP=1 leaves it); lists what it needs
+	python3 scripts/gcp_e2e.py $(if $(KEEP),--keep)
